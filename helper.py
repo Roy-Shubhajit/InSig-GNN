@@ -16,6 +16,7 @@ class collater():
         subgraphs = {}
         total_edge_index = torch.tensor([], dtype=torch.long)
         l = torch.tensor([], dtype=torch.long)
+        k = torch.tensor([], dtype=torch.long)
         for ind in range(num_nodes):
             nodes_, edge_index_, edge_mask_, z_ = k_hop_subgraph(
                 ind, 1, edge_index, False, num_nodes)
@@ -31,7 +32,10 @@ class collater():
                 l = torch.cat((l,torch.tensor([edge_index_.shape[1]//2])), dim=0)
                 num_edges += edge_index_.shape[1]
             elif self.task == "3star":
-                l = torch.cat((l,torch.tensor([comb(len(nodes_),3, exact=True)])), dim=0)
+                #l = torch.cat((l,torch.tensor([comb(len(nodes_-1),3, exact=True)])), dim=0)
+                l = torch.cat((l, torch.tensor([nodes_.shape[0]-1])), dim=0)
+                #l = torch.cat((l,torch.tensor([edge_index_.shape[1]//2])), dim=0)
+                k = torch.cat((l,torch.tensor([comb(len(nodes_-1),3, exact=True)])), dim=0)
             subgraphs[ind] = data_
             
         total_edge_index = torch.unique(total_edge_index, dim=0)
@@ -42,7 +46,7 @@ class collater():
             new_data.ext_label = torch.tensor([num_edges//6]) 
         elif self.task == "3star":
             new_data.ext_label_dataset = data.star
-            new_data.ext_label = torch.sum(l)
+            new_data.ext_label = torch.sum(k)
         return new_data, subgraphs, l
 
     def __call__(self, data):
