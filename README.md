@@ -1,1 +1,1 @@
-# Sub-Substruce-GNN
+# Sub-Structure-GNN
