@@ -94,7 +94,7 @@ if __name__ == '__main__':
     
     if args.task == 'triangle':
         variance = torch.std(dataset.data.triangle.to(torch.float32))**2
-    elif args.tasl == '3star':
+    elif args.task == '3star':
         variance = torch.std(dataset.data.star.to(torch.float32))**2
     
     collater_fn = collater(args.task)
