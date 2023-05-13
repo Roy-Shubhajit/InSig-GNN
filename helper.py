@@ -54,6 +54,13 @@ class collater():
                 mask = (edge_index_ != ind).all(dim=1)
                 edge_index_ = edge_index_[mask].T
                 total_edge_index = torch.cat((total_edge_index, edge_index_.T), dim=0)
+                x = torch.ones([num_nodes, 1]).to(edge_index.device)
+                for n in node_dict:
+                    if node_dict[n] == 2:
+                        x[n] = torch.tensor([2])
+                    else:
+                        x[n] = torch.tensor([1])
+                
                 data_ = Data(edge_index=edge_index_, z=z_)
                 ll = 0
                 edge_list = edge_index_.T.tolist()
@@ -80,7 +87,7 @@ class collater():
             new_data.ext_label_dataset = data.star
             new_data.ext_label = torch.sum(k)
         elif self.task == "C4":
-            new_data = Data(edge_index=data.edge_index)
+            new_data = Data(edge_index=total_edge_index.T)
             new_data.ext_label_dataset = data.C4
             new_data.ext_label = torch.ceil(torch.sum(k)/4)
         return new_data, subgraphs, l

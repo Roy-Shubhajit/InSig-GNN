@@ -20,6 +20,8 @@ class localGNN(torch.nn.Module):
             hidden, hidden), GELU()), train_eps=False)
         self.conv2 = GINConv(Sequential(Linear(hidden, hidden), GELU(), Linear(
             hidden, hidden), GELU()), train_eps=False)
+        self.conv3 = GINConv(Sequential(Linear(hidden, hidden), GELU(), Linear(
+            hidden, hidden), GELU()), train_eps=False)
         self.fc0 = Linear(hidden, hidden)
         self.fc1 = Linear(hidden, 1)
 
@@ -33,10 +35,14 @@ class localGNN(torch.nn.Module):
             for key in sub_graphs.keys():
                 subgraph = sub_graphs[key]
                 edge_index = subgraph.edge_index
-                subgraph.x = torch.ones(
-                    [subgraph.num_nodes, 1]).to(edge_index.device)
+                if 'x' in subgraph:
+                    x = subgraph.x
+                else:
+                    subgraph.x = torch.ones(
+                        [subgraph.num_nodes, 1]).to(edge_index.device)
                 x = self.conv1(subgraph.x, edge_index)
                 x = self.conv2(x, edge_index)
+                x = self.conv3(x, edge_index)
                 x = self.fc0(x)
                 x = F.gelu(x)
                 if len(x)>0:
