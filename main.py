@@ -96,7 +96,9 @@ if __name__ == '__main__':
         variance = torch.std(dataset.data.triangle.to(torch.float32))**2
     elif args.task == '3star':
         variance = torch.std(dataset.data.star.to(torch.float32))**2
-    
+    elif args.task == 'C4':
+        variance = torch.std(dataset.data.C4.to(torch.float32))**2
+    print("Variance: ", variance)
     collater_fn = collater(args.task)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, drop_last=True, collate_fn=collater_fn)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, drop_last=True, collate_fn=collater_fn)

@@ -18,12 +18,11 @@ class collater():
         l = torch.tensor([], dtype=torch.long)
         k = torch.tensor([], dtype=torch.long)
         for ind in range(num_nodes):
-            nodes_, edge_index_, edge_mask_, z_ = k_hop_subgraph(
-                ind, 1, edge_index, False, num_nodes)
-            edge_attr_ = None
-            edge_index_ = edge_index_.T
             if self.task == "triangle":
-
+                nodes_, edge_index_, edge_mask_, z_ = k_hop_subgraph(
+                ind, 1, edge_index, False, num_nodes)
+                edge_attr_ = None
+                edge_index_ = edge_index_.T
                 mask = (edge_index_ != ind).all(dim=1)
                 edge_index_ = edge_index_[mask].T
                 total_edge_index = torch.cat((total_edge_index, edge_index_.T), dim=0)
@@ -32,6 +31,10 @@ class collater():
                 num_edges += edge_index_.shape[1]
                 
             elif self.task == "3star":
+                nodes_, edge_index_, edge_mask_, z_ = k_hop_subgraph(
+                ind, 1, edge_index, False, num_nodes)
+                edge_attr_ = None
+                edge_index_ = edge_index_.T
 
                 mask = (edge_index_ == ind).all(dim=1)
                 edge_index_ = edge_index_[mask].T
@@ -39,6 +42,30 @@ class collater():
                 data_ = Data(edge_index=edge_index_, z=z_)
                 l = torch.cat((l, torch.tensor([nodes_.shape[0]-1])), dim=0)
                 k = torch.cat((k,torch.tensor([comb(nodes_.shape[0]-1,3, exact=True)])), dim=0)
+            
+            elif self.task == "C4":
+                node_dict = {}
+                nodes_, edge_index_, edge_mask_, z_ = k_hop_subgraph(
+                ind, 2, edge_index, False, num_nodes)
+                edge_index_ = edge_index_.T
+                nodes_ = nodes_[nodes_ != ind]
+                edge_list = edge_index_.tolist()
+                node_dict = {n.item(): 1 if [ind, n] in edge_list or [n, ind] in edge_list else 2 for n in nodes_}
+                mask = (edge_index_ != ind).all(dim=1)
+                edge_index_ = edge_index_[mask].T
+                total_edge_index = torch.cat((total_edge_index, edge_index_.T), dim=0)
+                data_ = Data(edge_index=edge_index_, z=z_)
+                ll = 0
+                edge_list = edge_index_.T.tolist()
+                total_nei = 0
+                for n in node_dict:
+                    nei = sum([1 for m in node_dict if [n, m] in edge_list and [m, n] in edge_list and node_dict[m] == 1])
+                    if nei >= 2:
+                        total_nei = total_nei + nei
+                        ll += comb(nei, 2, exact=True)
+                        
+                l = torch.cat((l, torch.tensor([ll])), dim=0)
+                k = torch.cat((k, torch.tensor([ll])), dim=0)
 
             subgraphs[ind] = data_
             
@@ -52,6 +79,10 @@ class collater():
             new_data = Data(edge_index=data.edge_index)
             new_data.ext_label_dataset = data.star
             new_data.ext_label = torch.sum(k)
+        elif self.task == "C4":
+            new_data = Data(edge_index=data.edge_index)
+            new_data.ext_label_dataset = data.C4
+            new_data.ext_label = torch.ceil(torch.sum(k)/4)
         return new_data, subgraphs, l
 
     def __call__(self, data):

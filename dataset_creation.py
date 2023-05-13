@@ -3,6 +3,8 @@ import warnings
 from torch_geometric.data import Data, InMemoryDataset, download_url, Batch
 from dgl.data.utils import Subset, load_graphs
 import torch
+from torch_geometric.utils import k_hop_subgraph
+from scipy.special import comb
 warnings.filterwarnings('ignore')
 import torch.utils.data
 
@@ -22,7 +24,33 @@ class Dataset_1_orig(InMemoryDataset):
 
     def download(self):
         pass
+    
+    def countC4(self, data):
+        edge_index, num_nodes = data.edge_index, data.num_nodes
+        l = torch.tensor([], dtype=torch.long)
+        for ind in range(num_nodes):
+            node_dict = {}
+            nodes_, edge_index_, edge_mask_, z_ = k_hop_subgraph(
+            ind, 2, edge_index, False, num_nodes)
+            edge_index_ = edge_index_.T
+            nodes_ = nodes_[nodes_ != ind]
+            edge_list = edge_index_.tolist()
+            node_dict = {n.item(): 1 if [ind, n] in edge_list or [n, ind] in edge_list else 2 for n in nodes_}
+            mask = (edge_index_ != ind).all(dim=1)
+            edge_index_ = edge_index_[mask].T
+            ll = 0
+            edge_list = edge_index_.T.tolist()
 
+            for n in node_dict:
+                nei = sum([1 for m in node_dict if [n, m] in edge_list and [m, n] in edge_list and node_dict[m] == 1])
+                if nei >= 2:
+                    ll += comb(nei, 2, exact=True)
+                    
+            l = torch.cat((l, torch.tensor([ll])), dim=0)
+       
+        
+        return torch.ceil(torch.sum(l)/4)
+    
     def from_dgl(self, g, star, tri, tail_tri, attr_tri, chord):
         import dgl
 
@@ -31,40 +59,21 @@ class Dataset_1_orig(InMemoryDataset):
         if not isinstance(g, dgl.DGLGraph):
             raise ValueError(f"Invalid data type (got '{type(g)}')")
 
-        if g.is_homogeneous:
-            data = Data()
-            data.edge_index = torch.stack(g.edges(), dim=0)
+       
+        data = Data()
+        data.edge_index = torch.stack(g.edges(), dim=0)
 
-            for attr, value in g.ndata.items():
-                data[attr] = value
-            for attr, value in g.edata.items():
-                data[attr] = value
+        for attr, value in g.ndata.items():
+            data[attr] = value
+        for attr, value in g.edata.items():
+            data[attr] = value
 
-            data.star = star.item()
-            data.triangle = tri.item()
-            data.tailed_triangle = tail_tri.item()
-            data.attributed_triangle = attr_tri.item()
-            data.chordal_cycle = chord.item()
-            return data
-
-        data = HeteroData()
-
-        for node_type in g.ntypes:
-            for attr, value in g.nodes[node_type].data.items():
-                data[node_type][attr] = value
-
-        for edge_type in g.canonical_etypes:
-            row, col = g.edges(form="uv", etype=edge_type)
-            data[edge_type].edge_index = torch.stack([row, col], dim=0)
-            for attr, value in g.edge_attr_schemes(edge_type).items():
-                data[edge_type][attr] = value
-        
+        data.C4 = self.countC4(data)
         data.star = star.item()
         data.triangle = tri.item()
         data.tailed_triangle = tail_tri.item()
         data.attributed_triangle = attr_tri.item()
         data.chordal_cycle = chord.item()
-        
         return data
 
     def process(self):
@@ -96,6 +105,32 @@ class Dataset_2_orig(InMemoryDataset):
     def download(self):
         pass
 
+    def countC4(self, data):
+        edge_index, num_nodes = data.edge_index, data.num_nodes
+        l = torch.tensor([], dtype=torch.long)
+        for ind in range(num_nodes):
+            node_dict = {}
+            nodes_, edge_index_, edge_mask_, z_ = k_hop_subgraph(
+            ind, 2, edge_index, False, num_nodes)
+            edge_index_ = edge_index_.T
+            nodes_ = nodes_[nodes_ != ind]
+            edge_list = edge_index_.tolist()
+            node_dict = {n.item(): 1 if [ind, n] in edge_list or [n, ind] in edge_list else 2 for n in nodes_}
+            mask = (edge_index_ != ind).all(dim=1)
+            edge_index_ = edge_index_[mask].T
+            ll = 0
+            edge_list = edge_index_.T.tolist()
+
+            for n in node_dict:
+                nei = sum([1 for m in node_dict if [n, m] in edge_list and [m, n] in edge_list and node_dict[m] == 1])
+                if nei >= 2:
+                    ll += comb(nei, 2, exact=True)
+                    
+            l = torch.cat((l, torch.tensor([ll])), dim=0)
+       
+        
+        return torch.ceil(torch.sum(l)/4)
+
     def from_dgl(self, g, star, tri, tail_tri, attr_tri, chord):
         import dgl
 
@@ -104,35 +139,16 @@ class Dataset_2_orig(InMemoryDataset):
         if not isinstance(g, dgl.DGLGraph):
             raise ValueError(f"Invalid data type (got '{type(g)}')")
 
-        if g.is_homogeneous:
-            data = Data()
-            data.edge_index = torch.stack(g.edges(), dim=0)
-
-            for attr, value in g.ndata.items():
-                data[attr] = value
-            for attr, value in g.edata.items():
-                data[attr] = value
-
-            data.star = star.item()
-            data.triangle = tri.item()
-            data.tailed_triangle = tail_tri.item()
-            data.attributed_triangle = attr_tri.item()
-            data.chordal_cycle = chord.item()
-
-            return data
-
-        data = HeteroData()
-
-        for node_type in g.ntypes:
-            for attr, value in g.nodes[node_type].data.items():
-                data[node_type][attr] = value
-
-        for edge_type in g.canonical_etypes:
-            row, col = g.edges(form="uv", etype=edge_type)
-            data[edge_type].edge_index = torch.stack([row, col], dim=0)
-            for attr, value in g.edge_attr_schemes(edge_type).items():
-                data[edge_type][attr] = value
         
+        data = Data()
+        data.edge_index = torch.stack(g.edges(), dim=0)
+
+        for attr, value in g.ndata.items():
+            data[attr] = value
+        for attr, value in g.edata.items():
+            data[attr] = value
+
+        data.C4 = self.countC4(data)
         data.star = star.item()
         data.triangle = tri.item()
         data.tailed_triangle = tail_tri.item()
