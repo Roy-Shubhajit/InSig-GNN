@@ -22,29 +22,34 @@ class collater():
                 ind, 1, edge_index, False, num_nodes)
             edge_attr_ = None
             edge_index_ = edge_index_.T
-
-            mask = (edge_index_ != ind).all(dim=1)
-            edge_index_ = edge_index_[mask].T
-            total_edge_index = torch.cat((total_edge_index, edge_index_.T), dim=0)
-            data_ = Data(edge_index=edge_index_, z=z_)
-
             if self.task == "triangle":
+
+                mask = (edge_index_ != ind).all(dim=1)
+                edge_index_ = edge_index_[mask].T
+                total_edge_index = torch.cat((total_edge_index, edge_index_.T), dim=0)
+                data_ = Data(edge_index=edge_index_, z=z_)
                 l = torch.cat((l,torch.tensor([edge_index_.shape[1]//2])), dim=0)
                 num_edges += edge_index_.shape[1]
+                
             elif self.task == "3star":
-                #l = torch.cat((l,torch.tensor([comb(len(nodes_-1),3, exact=True)])), dim=0)
+
+                mask = (edge_index_ == ind).all(dim=1)
+                edge_index_ = edge_index_[mask].T
+                total_edge_index = torch.cat((total_edge_index, edge_index_.T), dim=0)
+                data_ = Data(edge_index=edge_index_, z=z_)
                 l = torch.cat((l, torch.tensor([nodes_.shape[0]-1])), dim=0)
-                #l = torch.cat((l,torch.tensor([edge_index_.shape[1]//2])), dim=0)
-                k = torch.cat((l,torch.tensor([comb(len(nodes_-1),3, exact=True)])), dim=0)
+                k = torch.cat((k,torch.tensor([comb(nodes_.shape[0]-1,3, exact=True)])), dim=0)
+
             subgraphs[ind] = data_
             
         total_edge_index = torch.unique(total_edge_index, dim=0)
 
-        new_data = Data(edge_index=total_edge_index.T)
         if self.task == "triangle":
+            new_data = Data(edge_index=total_edge_index.T)
             new_data.ext_label_dataset = data.triangle
             new_data.ext_label = torch.tensor([num_edges//6]) 
         elif self.task == "3star":
+            new_data = Data(edge_index=data.edge_index)
             new_data.ext_label_dataset = data.star
             new_data.ext_label = torch.sum(k)
         return new_data, subgraphs, l

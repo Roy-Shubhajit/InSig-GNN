@@ -37,7 +37,7 @@ def train(int_model, ext_model, loader, int_opt, ext_opt):
         ext_model.train()
         ext_opt.zero_grad()
         ext_emb = ext_model(batch_graph)
-        loss2 = loss_fn2(ext_emb, batch_graph.ext_label)
+        loss2 = loss_fn2(ext_emb, batch_graph.ext_label_dataset)
         loss2.backward()
         ext_opt.step()
         total_loss_int += loss1.item()
@@ -65,7 +65,7 @@ def eval(int_model, ext_model, loader):
                 subgraphs[g][key] = subgraphs[g][key].to(device)
         batch_graph, int_out = int_model(graphs, subgraphs, max_nodes)
         ext_emb = ext_model(batch_graph)
-        loss = loss_fn2(ext_emb, batch_graph.ext_label)
+        loss = loss_fn2(ext_emb, batch_graph.ext_label_dataset)
         total_loss += loss.item()
         step += 1
     return total_loss / step
