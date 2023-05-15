@@ -7,6 +7,7 @@ from torch_geometric.utils import k_hop_subgraph
 from scipy.special import comb
 warnings.filterwarnings('ignore')
 import torch.utils.data
+from torch_geometric.utils import degree
 
 
 class Dataset_1_orig(InMemoryDataset):
@@ -24,6 +25,35 @@ class Dataset_1_orig(InMemoryDataset):
 
     def download(self):
         pass
+
+    def count_2star(self, data):
+        egde_index, num_nodes = data.edge_index, data.num_nodes
+        k = torch.tensor([], dtype=torch.long)
+        for ind in range(num_nodes):
+            nodes_, edge_index_, edge_mask_, z_ = k_hop_subgraph(
+            ind, 1, egde_index, False, num_nodes)
+            edge_index_ = edge_index_.T
+            mask = (edge_index_ == ind).all(dim=1)
+            edge_index_ = edge_index_[mask].T
+            k = torch.cat((k,torch.tensor([comb(nodes_.shape[0]-1,2, exact=True)])), dim=0)
+        return torch.sum(k)
+
+    def count_chordal(self, data):
+        edge_index, num_nodes = data.edge_index, data.num_nodes
+        total_edge_index = torch.tensor([], dtype=torch.long)
+        l = torch.tensor([], dtype=torch.long)
+        for ind in range(num_nodes):
+            nodes_, edge_index_, edge_mask_, z_ = k_hop_subgraph(
+            ind, 1, edge_index, False, num_nodes)
+            edge_index_ = edge_index_.T
+            mask = (edge_index_ != ind).all(dim=1)
+            edge_index_ = edge_index_[mask].T
+            total_edge_index = torch.cat((total_edge_index, edge_index_.T), dim=0)
+            nodes_ = nodes_[nodes_ != ind]
+            deg = degree(edge_index_[0], num_nodes)
+            ll = sum([comb(i, 2, exact=True) for i in  deg[deg > 1]])
+            l = torch.cat((l, torch.tensor([ll])), dim=0)
+        return torch.sum(l)//2
     
     def countC4(self, data):
         edge_index, num_nodes = data.edge_index, data.num_nodes
@@ -35,7 +65,7 @@ class Dataset_1_orig(InMemoryDataset):
             edge_index_ = edge_index_.T
             nodes_ = nodes_[nodes_ != ind]
             edge_list = edge_index_.tolist()
-            node_dict = {n.item(): 1 if [ind, n] in edge_list or [n, ind] in edge_list else 2 for n in nodes_}
+            node_dict = {n.item(): 1 if [ind, n] in edge_list or [n, ind] in edge_list else 0 for n in nodes_}
             mask = (edge_index_ != ind).all(dim=1)
             edge_index_ = edge_index_[mask].T
             ll = 0
@@ -73,7 +103,8 @@ class Dataset_1_orig(InMemoryDataset):
         data.triangle = tri.item()
         data.tailed_triangle = tail_tri.item()
         data.attributed_triangle = attr_tri.item()
-        data.chordal_cycle = chord.item()
+        data.chordal_cycle = self.count_chordal(data)
+        data.star_2 = self.count_2star(data)
         return data
 
     def process(self):
@@ -105,6 +136,35 @@ class Dataset_2_orig(InMemoryDataset):
     def download(self):
         pass
 
+    def count_2star(self, data):
+        egde_index, num_nodes = data.edge_index, data.num_nodes
+        k = torch.tensor([], dtype=torch.long)
+        for ind in range(num_nodes):
+            nodes_, edge_index_, edge_mask_, z_ = k_hop_subgraph(
+            ind, 1, egde_index, False, num_nodes)
+            edge_index_ = edge_index_.T
+            mask = (edge_index_ == ind).all(dim=1)
+            edge_index_ = edge_index_[mask].T
+            k = torch.cat((k,torch.tensor([comb(nodes_.shape[0]-1,2, exact=True)])), dim=0)
+        return torch.sum(k)
+
+    def count_chordal(self, data):
+        edge_index, num_nodes = data.edge_index, data.num_nodes
+        total_edge_index = torch.tensor([], dtype=torch.long)
+        l = torch.tensor([], dtype=torch.long)
+        for ind in range(num_nodes):
+            nodes_, edge_index_, edge_mask_, z_ = k_hop_subgraph(
+            ind, 1, edge_index, False, num_nodes)
+            edge_index_ = edge_index_.T
+            mask = (edge_index_ != ind).all(dim=1)
+            edge_index_ = edge_index_[mask].T
+            total_edge_index = torch.cat((total_edge_index, edge_index_.T), dim=0)
+            nodes_ = nodes_[nodes_ != ind]
+            deg = degree(edge_index_[0], num_nodes)
+            ll = sum([comb(i, 2, exact=True) for i in  deg[deg > 1]])
+            l = torch.cat((l, torch.tensor([ll])), dim=0)
+        return torch.sum(l)//2
+
     def countC4(self, data):
         edge_index, num_nodes = data.edge_index, data.num_nodes
         l = torch.tensor([], dtype=torch.long)
@@ -115,7 +175,7 @@ class Dataset_2_orig(InMemoryDataset):
             edge_index_ = edge_index_.T
             nodes_ = nodes_[nodes_ != ind]
             edge_list = edge_index_.tolist()
-            node_dict = {n.item(): 1 if [ind, n] in edge_list or [n, ind] in edge_list else 2 for n in nodes_}
+            node_dict = {n.item(): 1 if [ind, n] in edge_list or [n, ind] in edge_list else 0 for n in nodes_}
             mask = (edge_index_ != ind).all(dim=1)
             edge_index_ = edge_index_[mask].T
             ll = 0
@@ -153,7 +213,8 @@ class Dataset_2_orig(InMemoryDataset):
         data.triangle = tri.item()
         data.tailed_triangle = tail_tri.item()
         data.attributed_triangle = attr_tri.item()
-        data.chordal_cycle = chord.item()
+        data.chordal_cycle = self.count_chordal(data)
+        data.star_2 = self.count_2star(data)
 
         return data
 

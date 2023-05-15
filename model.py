@@ -20,8 +20,8 @@ class localGNN(torch.nn.Module):
             hidden, hidden), GELU()), train_eps=False)
         self.conv2 = GINConv(Sequential(Linear(hidden, hidden), GELU(), Linear(
             hidden, hidden), GELU()), train_eps=False)
-        self.conv3 = GINConv(Sequential(Linear(hidden, hidden), GELU(), Linear(
-            hidden, hidden), GELU()), train_eps=False)
+        #self.conv3 = GINConv(Sequential(Linear(hidden, hidden), GELU(), Linear(
+            #hidden, hidden), GELU()), train_eps=False)
         self.fc0 = Linear(hidden, hidden)
         self.fc1 = Linear(hidden, 1)
 
@@ -42,7 +42,7 @@ class localGNN(torch.nn.Module):
                         [subgraph.num_nodes, 1]).to(edge_index.device)
                 x = self.conv1(subgraph.x, edge_index)
                 x = self.conv2(x, edge_index)
-                x = self.conv3(x, edge_index)
+                #x = self.conv3(x, edge_index)
                 x = self.fc0(x)
                 x = F.gelu(x)
                 if len(x)>0:
@@ -78,4 +78,19 @@ class globalGNN(torch.nn.Module):
         #x = F.elu(x)
         x = self.fc2(x)
         x = global_add_pool(x, data.batch)
+        return x
+    
+class new_external(torch.nn.Module):
+    def __init__(self, num_layer, hidden):
+        super(new_external, self).__init__()
+        self.hidden = hidden
+        self.fc1 = Linear(1, hidden)
+        self.fc2 = Linear(hidden, 1)
+
+    def forward(self, x):
+        x = torch.sum(x, dim=1)
+        x = x.reshape(-1,1)
+        x = self.fc1(x)
+        x = F.gelu(x)
+        x = self.fc2(x)
         return x
