@@ -48,7 +48,8 @@ def train(args, int_triangle, ext_triangle, predictor, loader, pred_opt, loss_fn
         if args.task == 'K4':
             count = torch.tensor(0.0).to(device)
         elif args.task == 'chordal':
-            count = torch.tensor([]).to(device)
+            m1 = torch.tensor(0.0).to(device)
+            m2 = torch.tensor(0.0).to(device)
         for j in range(len(subgraphs)):
             for k in subgraphs[j].keys():
                 if args.task == 'K4':
@@ -57,8 +58,10 @@ def train(args, int_triangle, ext_triangle, predictor, loader, pred_opt, loss_fn
                 elif args.task == 'chordal':
                     c1 = star2_count(int_triangle, ext_triangle, [subgraphs[j][k]], subsubgraphs[j][k], subgraph_max_nodes[j])
                     c2 = triangle_count(int_triangle, ext_triangle, [subgraphs[j][k]], subsubgraphs[j][k], subgraph_max_nodes[j])
-                    m = torch.cat((c1, c2), dim=0).to(device)
-                    count = torch.cat((count, m), dim=1)
+                    m1 = m1 + c1
+                    m2 = m2 + c2
+        if args.task == 'chordal':
+            count = torch.cat((m1, m2), dim=0).to(device)
         pred_opt.zero_grad()
         pred = predictor(count)
         loss = loss_fn1(pred, graphs[0].ext_label)
@@ -96,7 +99,8 @@ def eval(args, int_triangle, ext_triangle, predictor, loader, loss_fn1):
         if args.task == 'K4':
             count = torch.tensor(0.0).to(device)
         elif args.task == 'chordal':
-            count = torch.tensor([]).to(device)
+            m1 = torch.tensor(0.0).to(device)
+            m2 = torch.tensor(0.0).to(device)
         for j in range(len(subgraphs)):
             for k in subgraphs[j].keys():
                 if args.task == 'K4':
@@ -105,8 +109,10 @@ def eval(args, int_triangle, ext_triangle, predictor, loader, loss_fn1):
                 elif args.task == 'chordal':
                     c1 = star2_count(int_triangle, ext_triangle, [subgraphs[j][k]], subsubgraphs[j][k], subgraph_max_nodes[j])
                     c2 = triangle_count(int_triangle, ext_triangle, [subgraphs[j][k]], subsubgraphs[j][k], subgraph_max_nodes[j])
-                    m = torch.cat((c1, c2), dim=0)
-                    count = torch.cat((count, m), dim=1)
+                    m1 = m1 + c1
+                    m2 = m2 + c2
+        if args.task == 'chordal':
+            count = torch.cat((m1, m2), dim=0).to(device)
         pred = predictor(count)
         loss = loss_fn1(pred, graphs[0].ext_label)
         total_loss += loss.item()
