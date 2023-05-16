@@ -11,3 +11,6 @@ python main.py \
 --epochs 100 \
 --step 500
 ```
+
+
+To run fragmentation using the previous model:
