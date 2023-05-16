@@ -72,7 +72,7 @@ def eval(int_model, ext_model, loader):
     return total_loss / step
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description='Sub-Structure GNN')
     parser.add_argument('--task', type=str, default='triangle')
     parser.add_argument('--dataset', type=str, default='dataset_2')
     parser.add_argument('--epochs', type=int, default=100)
@@ -117,8 +117,8 @@ if __name__ == '__main__':
 
     Int_GNN = localGNN(1, 512).to(device)
     Ext_GNN = new_external(1, 64).to(device)
-    Int_Opt = torch.optim.Adam(Int_GNN.parameters(), lr=0.001)
-    Ext_Opt = torch.optim.Adam(Ext_GNN.parameters(), lr=0.001)
+    Int_Opt = torch.optim.Adam(Int_GNN.parameters(), lr=args.lr)
+    Ext_Opt = torch.optim.Adam(Ext_GNN.parameters(), lr=args.lr)
     loss_fn1 = torch.nn.L1Loss(reduction='mean')
     loss_fn2 = torch.nn.L1Loss(reduction='mean')
 

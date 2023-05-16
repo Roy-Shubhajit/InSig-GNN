@@ -20,8 +20,6 @@ class localGNN(torch.nn.Module):
             hidden, hidden), GELU()), train_eps=False)
         self.conv2 = GINConv(Sequential(Linear(hidden, hidden), GELU(), Linear(
             hidden, hidden), GELU()), train_eps=False)
-        #self.conv3 = GINConv(Sequential(Linear(hidden, hidden), GELU(), Linear(
-            #hidden, hidden), GELU()), train_eps=False)
         self.fc0 = Linear(hidden, hidden)
         self.fc1 = Linear(hidden, 1)
 
@@ -35,14 +33,10 @@ class localGNN(torch.nn.Module):
             for key in sub_graphs.keys():
                 subgraph = sub_graphs[key]
                 edge_index = subgraph.edge_index
-                if 'x' in subgraph:
-                    x = subgraph.x
-                else:
-                    subgraph.x = torch.ones(
-                        [subgraph.num_nodes, 1]).to(edge_index.device)
+                subgraph.x = torch.ones(
+                    [subgraph.num_nodes, 1]).to(edge_index.device)
                 x = self.conv1(subgraph.x, edge_index)
                 x = self.conv2(x, edge_index)
-                #x = self.conv3(x, edge_index)
                 x = self.fc0(x)
                 x = F.gelu(x)
                 if len(x)>0:
@@ -51,14 +45,19 @@ class localGNN(torch.nn.Module):
                 else:
                     x = torch.zeros(1, self.hidden).to(data_list[0].edge_index.device)
                 emb = torch.cat((emb, x), dim=0)
-            int_emb[num, :emb.shape[0], :] = emb
+            #print(graph.num_nodes, emb.shape)
+            if emb.shape[0] == 0:
+                continue
+                #int_emb[num, :graph.num_nodes, :] = torch.zeros((graph.num_nodes, self.hidden)).to(data_list[0].edge_index.device)
+            else:
+                int_emb[num, :emb.shape[0], :] = emb
             num += 1
             graph.x = emb  
             new_data_list.append(graph) 
         res = self.fc1(int_emb)
-        batch = Batch.from_data_list(new_data_list)
+        #batch = Batch.from_data_list(new_data_list)
         res = torch.squeeze(res, dim=-1)
-        return batch, res
+        return res
 
 class globalGNN(torch.nn.Module):
     def __init__(self, num_layers, hidden):
@@ -90,6 +89,20 @@ class new_external(torch.nn.Module):
     def forward(self, x):
         x = torch.sum(x, dim=1)
         x = x.reshape(-1,1)
+        x = self.fc1(x)
+        x = F.gelu(x)
+        x = self.fc2(x)
+        return x
+
+class predictor(torch.nn.Module):
+    def __init__(self, input_emb, hidden):
+        super(predictor, self).__init__()
+        self.hidden = hidden
+        self.fc1 = Linear(input_emb, hidden)
+        self.fc2 = Linear(hidden, 1)
+
+    def forward(self, x):
+        x = torch.sum(x, dim=1)
         x = self.fc1(x)
         x = F.gelu(x)
         x = self.fc2(x)
