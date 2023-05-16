@@ -136,6 +136,38 @@ class Dataset_2_orig(InMemoryDataset):
     def download(self):
         pass
 
+    def count_triangle(self, data):
+        edge_index, num_nodes = data.edge_index, data.num_nodes
+        if num_nodes > 0:
+            node_name = torch.unique(edge_index[0])
+        else:
+            return 0
+        num_edges = 0
+        for ind in node_name:
+            nodes_, edge_index_, edge_mask_, z_ = k_hop_subgraph(
+            ind.item(), 1, edge_index, False, num_nodes)
+            edge_attr_ = None
+            edge_index_ = edge_index_.T
+            mask = (edge_index_ != ind).all(dim=1)
+            edge_index_ = edge_index_[mask].T
+            num_edges += edge_index_.shape[1]
+        return torch.tensor([num_edges//6]) 
+
+    def count_K4(self, data):
+        edge_index, num_nodes = data.edge_index, data.num_nodes
+        total_edge_index = torch.tensor([], dtype=torch.long)
+        l = torch.tensor([], dtype=torch.long)
+        for ind in range(num_nodes):
+            nodes_, edge_index_, edge_mask_, z_ = k_hop_subgraph(
+            ind, 2, edge_index, False, num_nodes)
+            edge_index_ = edge_index_.T
+            mask = (edge_index_ != ind).all(dim=1)
+            edge_index_ = edge_index_[mask].T
+            data_ = Data(edge_index=edge_index_, z=z_)
+            l = torch.cat((l, self.count_triangle(data_)), dim=0)
+
+        return torch.sum(l)//4
+
     def count_2star(self, data):
         egde_index, num_nodes = data.edge_index, data.num_nodes
         k = torch.tensor([], dtype=torch.long)

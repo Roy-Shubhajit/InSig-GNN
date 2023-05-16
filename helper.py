@@ -96,8 +96,6 @@ class collater():
                 edge_index_ = edge_index_.T
                 mask = (edge_index_ == ind).all(dim=1)
                 edge_index_ = edge_index_[mask].T
-                total_edge_index = torch.cat((total_edge_index, edge_index_.T), dim=0)
-                data_ = Data(edge_index=edge_index_, z=z_)
                 k = torch.cat((k,torch.tensor([comb(nodes_.shape[0]-1,2, exact=True)])), dim=0)
                 l = torch.cat((l, torch.tensor([nodes_.shape[0]-1])), dim=0)
             subgraphs[ind] = data_
