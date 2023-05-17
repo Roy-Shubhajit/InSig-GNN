@@ -51,16 +51,17 @@ class collater():
                 edge_index_ = edge_index_.T
                 nodes_ = nodes_[nodes_ != ind]
                 edge_list = edge_index_.tolist()
-                node_dict = {n.item(): 1 if [ind, n] in edge_list or [n, ind] in edge_list else 0 for n in nodes_}
+                node_dict = {n.item(): 1 if [ind, n] in edge_list or [n, ind] in edge_list else 2 for n in nodes_}
                 mask = (edge_index_ != ind).all(dim=1)
                 edge_index_ = edge_index_[mask].T
                 total_edge_index = torch.cat((total_edge_index, edge_index_.T), dim=0)
                 x = torch.ones([num_nodes, 1]).to(edge_index.device)
                 for n in node_dict:
-                    if node_dict[n] == 0:
-                        x[n] = torch.tensor([0])
-                    else:
-                        x[n] = torch.tensor([1])
+                    nei_num = 0
+                    for m in node_dict:
+                        if node_dict[m] == 1 and [n, m] in edge_list and [m, n] in edge_list:
+                            nei_num += 1
+                    x[n] = torch.tensor([nei_num])
                 
                 data_ = Data(edge_index=edge_index_, z=z_)
                 ll = 0
@@ -146,27 +147,23 @@ class frag_collater():
         pass
 
     def create_subsubgraphs_2stars(self, data):
-        edge_index, num_nodes = data.edge_index, data.num_nodes
-        if num_nodes > 0:
-            node_name = torch.unique(edge_index[0])
-        else:
-            return {}, torch.tensor([0])
-        
-        num_edges = 0
+        edge_index, num_nodes = data.edge_index, data.num_nodes   
         subgraphs = {}
         l = torch.tensor([], dtype=torch.long)
-        for ind in node_name:
+        k = torch.tensor([], dtype=torch.long)
+        for ind in range(num_nodes):
             nodes_, edge_index_, edge_mask_, z_ = k_hop_subgraph(
-            ind.item(), 1, edge_index, False, num_nodes)
-            edge_attr_ = None
+            ind, 1, edge_index, False, num_nodes)
             edge_index_ = edge_index_.T
-            mask = (edge_index_ != ind).all(dim=1)
+            mask = (edge_index_ == ind).all(dim=1)
             edge_index_ = edge_index_[mask].T
             data_ = Data(edge_index=edge_index_, z=z_)
-            l = torch.cat((l,torch.tensor([comb(nodes_.shape[0]-1,2, exact=True)])), dim=0)
-            num_edges += edge_index_.shape[1]
-            subgraphs[ind.item()] = data_
-        return subgraphs, torch.sum(l) - torch.tensor([num_edges//6])
+            k = torch.cat((k,torch.tensor([comb(nodes_.shape[0]-1,2, exact=True)])), dim=0)
+            l = torch.cat((l, torch.tensor([nodes_.shape[0]-1])), dim=0)
+            subgraphs[ind] = data_
+        if torch.sum(l).shape == torch.Size([]):
+            return subgraphs, torch.tensor([0])
+        return subgraphs, torch.sum(l)
 
     #for K4 counting
     def create_subsubgraphs_triangle(self, data):
@@ -190,7 +187,7 @@ class frag_collater():
             l = torch.cat((l,torch.tensor([comb(nodes_.shape[0]-1,2, exact=True)])), dim=0)
             num_edges += edge_index_.shape[1]
             subgraphs[ind.item()] = data_
-        return subgraphs, torch. torch.tensor([num_edges//6]) 
+        return subgraphs, torch.tensor([num_edges//6]) 
 
     def create_subgraphs(self, data):
 
@@ -226,8 +223,11 @@ class frag_collater():
         total_edge_index = torch.unique(total_edge_index, dim=0)
 
         new_data = Data(edge_index=total_edge_index.T)
-        new_data.ext_label = torch.sum(l)//4
-
+        if self.task == 'K4':
+            new_data.ext_label = torch.sum(l)//4
+        elif self.task == 'chordal':
+            new_data.ext_label = torch.sum(l)//2
+            new_data.ext_label_dataset = data.chordal_cycle
         return new_data, subgraphs, l, subsubgraphs, max([d.num_nodes for d in subgraphs.values()])
 
     def __call__(self, data):

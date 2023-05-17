@@ -14,18 +14,18 @@ def count_parameters(model):
 def triangle_count(tri_int, tri_ext, graph, subgraph, max_nodes):
     tri_int.eval()
     tri_ext.eval()
-    int_out = tri_int(graph, subgraph, max_nodes)
-    ext_emb = tri_ext(int_out)
+    batch, int_out = tri_int(graph, subgraph, max_nodes)
+    ext_emb = tri_ext(batch)
     return ext_emb
 
 def star2_count(star2_int, star2_ext, graph, subgraph, max_nodes):
     star2_int.eval()
     star2_ext.eval()
-    int_out = star2_int(graph, subgraph, max_nodes)
+    batch, int_out = star2_int(graph, subgraph, max_nodes)
     ext_emb = star2_ext(int_out)
     return ext_emb
 
-def train(args, int_triangle, ext_triangle, predictor, loader, pred_opt, loss_fn1):
+def train(args, int_model, ext_model, predictor, loader, pred_opt, loss_fn1):
     step = 0
     total_loss_int = 0
     predictor.train()
@@ -45,23 +45,19 @@ def train(args, int_triangle, ext_triangle, predictor, loader, pred_opt, loss_fn
         labels = batch[2].to(device)
         max_nodes = batch[3]
         subgraph_max_nodes = batch[5]
-        if args.task == 'K4':
-            count = torch.tensor(0.0).to(device)
-        elif args.task == 'chordal':
-            m1 = torch.tensor(0.0).to(device)
-            m2 = torch.tensor(0.0).to(device)
+        count = torch.tensor(0.0).to(device)
         for j in range(len(subgraphs)):
             for k in subgraphs[j].keys():
                 if args.task == 'K4':
-                    m = triangle_count(int_triangle, ext_triangle, [subgraphs[j][k]], subsubgraphs[j][k], subgraph_max_nodes[j])
+                    m = triangle_count(int_model, ext_model, [subgraphs[j][k]], subsubgraphs[j][k], subgraph_max_nodes[j])
                     count = count + m
                 elif args.task == 'chordal':
-                    c1 = star2_count(int_triangle, ext_triangle, [subgraphs[j][k]], subsubgraphs[j][k], subgraph_max_nodes[j])
-                    c2 = triangle_count(int_triangle, ext_triangle, [subgraphs[j][k]], subsubgraphs[j][k], subgraph_max_nodes[j])
-                    m1 = m1 + c1
-                    m2 = m2 + c2
-        if args.task == 'chordal':
-            count = torch.cat((m1, m2), dim=0).to(device)
+                    m = star2_count(int_model, ext_model, [subgraphs[j][k]], subsubgraphs[j][k], subgraph_max_nodes[j])
+                    #2 = triangle_count(int_triangle, ext_triangle, [subgraphs[j][k]], subsubgraphs[j][k], subgraph_max_nodes[j])
+                    count = count + m
+                    
+        #if args.task == 'chordal':
+            #count = torch.cat((m1, m2), dim=0).to(device)
         pred_opt.zero_grad()
         pred = predictor(count)
         loss = loss_fn1(pred, graphs[0].ext_label)
@@ -76,7 +72,7 @@ def train(args, int_triangle, ext_triangle, predictor, loader, pred_opt, loss_fn
     return total_loss_int / step
         
 
-def eval(args, int_triangle, ext_triangle, predictor, loader, loss_fn1):
+def eval(args, int_model, ext_model, predictor, loader, loss_fn1):
     step = 0
     total_loss = 0
     predictor.eval()
@@ -96,23 +92,18 @@ def eval(args, int_triangle, ext_triangle, predictor, loader, loss_fn1):
         labels = batch[2].to(device)
         max_nodes = batch[3]
         subgraph_max_nodes = batch[5]
-        if args.task == 'K4':
-            count = torch.tensor(0.0).to(device)
-        elif args.task == 'chordal':
-            m1 = torch.tensor(0.0).to(device)
-            m2 = torch.tensor(0.0).to(device)
+        count = torch.tensor(0.0).to(device)
         for j in range(len(subgraphs)):
             for k in subgraphs[j].keys():
                 if args.task == 'K4':
-                    m = triangle_count(int_triangle, ext_triangle, [subgraphs[j][k]], subsubgraphs[j][k], subgraph_max_nodes[j])
+                    m = triangle_count(int_model, ext_model, [subgraphs[j][k]], subsubgraphs[j][k], subgraph_max_nodes[j])
                     count = count + m
                 elif args.task == 'chordal':
-                    c1 = star2_count(int_triangle, ext_triangle, [subgraphs[j][k]], subsubgraphs[j][k], subgraph_max_nodes[j])
-                    c2 = triangle_count(int_triangle, ext_triangle, [subgraphs[j][k]], subsubgraphs[j][k], subgraph_max_nodes[j])
-                    m1 = m1 + c1
-                    m2 = m2 + c2
-        if args.task == 'chordal':
-            count = torch.cat((m1, m2), dim=0).to(device)
+                    m = star2_count(int_model, ext_model, [subgraphs[j][k]], subsubgraphs[j][k], subgraph_max_nodes[j])
+                    #c2 = triangle_count(int_triangle, ext_triangle, [subgraphs[j][k]], subsubgraphs[j][k], subgraph_max_nodes[j])
+                    count = count + m
+        #if args.task == 'chordal':
+            #count = torch.cat((m1, m2), dim=0).to(device)
         pred = predictor(count)
         loss = loss_fn1(pred, graphs[0].ext_label)
         total_loss += loss.item()
@@ -148,21 +139,19 @@ def main(args):
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, collate_fn=collater_fn)
 
     int_triangle = localGNN(1, 512).to(device)
-    ext_triangle = new_external(1, 64).to(device)
+    ext_triangle = globalGNN(1, 512).to(device)
 
     int_star2 = localGNN(1, 512).to(device)
-    ext_star2 = globalGNN(1, 512).to(device)
+    ext_star2 = new_external(1, 64).to(device)
 
-    int_triangle.load_state_dict(torch.load('/hdfs1/Data/Shubhajit/Sub-Structure-GNN/save/triangle_2/Int_GNN_triangle_dataset_2.pt'))
-    ext_triangle.load_state_dict(torch.load('/hdfs1/Data/Shubhajit/Sub-Structure-GNN/save/triangle_2/Ext_GNN_triangle_dataset_2.pt'))
+    int_triangle.load_state_dict(torch.load('/hdfs1/Data/Shubhajit/Sub-Structure-GNN/save/triangle_1/Int_GNN_triangle_dataset_2.pt'))
+    ext_triangle.load_state_dict(torch.load('/hdfs1/Data/Shubhajit/Sub-Structure-GNN/save/triangle_1/Ext_GNN_triangle_dataset_2.pt'))
 
-    int_star2.load_state_dict(torch.load('/hdfs1/Data/Shubhajit/Sub-Structure-GNN/save/2star_1/Int_GNN_2star_dataset_2.pt'))
-    ext_star2.load_state_dict(torch.load('/hdfs1/Data/Shubhajit/Sub-Structure-GNN/save/2star_1/Ext_GNN_2star_dataset_2.pt'))
+    int_star2.load_state_dict(torch.load('/hdfs1/Data/Shubhajit/Sub-Structure-GNN/save/2star_2/Int_GNN_2star_dataset_2.pt'))
+    ext_star2.load_state_dict(torch.load('/hdfs1/Data/Shubhajit/Sub-Structure-GNN/save/2star_2/Ext_GNN_2star_dataset_2.pt'))
 
-    if args.task == 'K4':
-        predict_model = predictor(1, 64).to(device)
-    elif args.task == 'chordal':
-        predict_model = predictor(2, 64).to(device) 
+    
+    predict_model = predictor(1, 64).to(device) 
 
     pred_opt = torch.optim.Adam(predict_model.parameters(), lr=args.lr)
     loss_fn1 = torch.nn.L1Loss(reduction='mean')

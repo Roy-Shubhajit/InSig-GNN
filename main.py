@@ -12,7 +12,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-def train(int_model, ext_model, loader, int_opt, ext_opt):
+def train(int_model, ext_model, loader, int_opt, ext_opt, args):
     step = 0
     total_loss_int = 0
     total_loss_ext = 0
@@ -37,7 +37,10 @@ def train(int_model, ext_model, loader, int_opt, ext_opt):
         batch_graph, int_out = int_model(graphs, subgraphs, max_nodes)
         ext_model.train()
         ext_opt.zero_grad()
-        ext_emb = ext_model(int_out)
+        if args.model == 'insig':
+            ext_emb = ext_model(int_out)
+        else:
+            ext_emb = ext_model(batch_graph)
         loss2 = loss_fn2(ext_emb, batch_graph.ext_label)
         loss2.backward()
         ext_opt.step()
@@ -49,7 +52,7 @@ def train(int_model, ext_model, loader, int_opt, ext_opt):
                 step, total_loss_int/step, total_loss_ext/step))
     return total_loss_ext / step
 
-def eval(int_model, ext_model, loader):
+def eval(int_model, ext_model, loader, args):
     int_model.eval()
     ext_model.eval()
     step = 0
@@ -65,7 +68,10 @@ def eval(int_model, ext_model, loader):
             for key in subgraphs[g].keys():
                 subgraphs[g][key] = subgraphs[g][key].to(device)
         batch_graph, int_out = int_model(graphs, subgraphs, max_nodes)
-        ext_emb = ext_model(int_out)
+        if args.model == 'insig':
+            ext_emb = ext_model(int_out)
+        else:
+            ext_emb = ext_model(batch_graph)
         loss = loss_fn2(ext_emb, batch_graph.ext_label)
         total_loss += loss.item()
         step += 1
@@ -80,6 +86,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=0.0001)
     parser.add_argument('--step', type=int, default=500)
     parser.add_argument('--output_file', type=str)
+    parser.add_argument('--model', type=str, default='insig')
     args = parser.parse_args()
 
     if 'save/'+args.output_file not in os.listdir():
@@ -116,7 +123,10 @@ if __name__ == '__main__':
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, drop_last=True, collate_fn=collater_fn)
 
     Int_GNN = localGNN(1, 512).to(device)
-    Ext_GNN = new_external(1, 64).to(device)
+    if args.model == 'insig':
+        Ext_GNN = new_external(1, 64).to(device)
+    else:
+        Ext_GNN = globalGNN(1, 512).to(device)
     Int_Opt = torch.optim.Adam(Int_GNN.parameters(), lr=args.lr)
     Ext_Opt = torch.optim.Adam(Ext_GNN.parameters(), lr=args.lr)
     loss_fn1 = torch.nn.L1Loss(reduction='mean')
@@ -133,13 +143,13 @@ if __name__ == '__main__':
     for epoch in range(1, 101):
         print("=====Epoch {}".format(epoch))
         print('Training...')
-        train_loss = train(Int_GNN, Ext_GNN, train_loader, Int_Opt, Ext_Opt)
+        train_loss = train(Int_GNN, Ext_GNN, train_loader, Int_Opt, Ext_Opt, args)
         print('Train loss : {}'.format(train_loss/variance))
 
         print('Evaluating...')
-        valid_loss = eval(Int_GNN, Ext_GNN, val_loader)
+        valid_loss = eval(Int_GNN, Ext_GNN, val_loader, args)
         print('Valid loss : {}'.format(valid_loss/variance))
-        test_loss = eval(Int_GNN, Ext_GNN, test_loader)
+        test_loss = eval(Int_GNN, Ext_GNN, test_loader, args)
         print('Test loss : {}'.format(test_loss/variance))
         if valid_loss < best_val_loss:
             best_val_loss = valid_loss
