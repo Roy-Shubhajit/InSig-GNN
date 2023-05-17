@@ -1,4 +1,10 @@
-# Sub-Structure-GNN
+# InSig-GNN
+
+![model_new](https://github.com/Roy-Shubhajit/InSig-GNN/assets/81477286/3e050e3e-d213-4def-b440-01af8bb9810e)
+
+# InsideOut-GNN
+
+![model](https://github.com/Roy-Shubhajit/InSig-GNN/assets/81477286/e5c66609-337f-4a04-8eae-42ca7e71bcc3)
 
 The model can be trained using the following command:
 
