@@ -1,5 +1,5 @@
 # InSig-GNN
-## This is the repository for the paper **Improving Expressivity of Graph Neural Networks using Localization**.
+## This is the repository for the paper "**Improving Expressivity of Graph Neural Networks using Localization**".
 ![model_new](Image/model_new.png)
 
 
