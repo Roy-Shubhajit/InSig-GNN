@@ -11,14 +11,14 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-def triangle_count(tri_int, tri_ext, graph, subgraph, max_nodes):
-    tri_int.eval()
-    tri_ext.eval()
-    batch, int_out = tri_int(graph, subgraph, max_nodes)
+def star2_count(star2_int, star2_ext, graph, subgraph, max_nodes):
+    star2_int.eval()
+    star2_ext.eval()
+    batch, int_out = star2_int(graph, subgraph, max_nodes)
     int_out = new_round(int_out, 0.5)
     int_out = int_out.to(device)
     int_out = int_out.float()
-    ext_emb = tri_ext(int_out)
+    ext_emb = star2_ext(int_out)
     ext_emb = new_round(ext_emb, 0.5)
     ext_emb = ext_emb.to(device)
     ext_emb = ext_emb.float()
@@ -46,7 +46,7 @@ def train(args, int_model, ext_model, predictor, loader, pred_opt, loss_fn1):
         count = torch.tensor(0.0).to(device)
         for j in range(len(subgraphs)):
             for k in subgraphs[j].keys():
-                m = triangle_count(int_model, ext_model, [subgraphs[j][k]], subsubgraphs[j][k], subgraph_max_nodes[j])
+                m = star2_count(int_model, ext_model, [subgraphs[j][k]], subsubgraphs[j][k], subgraph_max_nodes[j])
                 count = count + m
                     
         pred_opt.zero_grad()
@@ -86,7 +86,7 @@ def eval(args, int_model, ext_model, predictor, loader, loss_fn1):
         count = torch.tensor(0.0).to(device)
         for j in range(len(subgraphs)):
             for k in subgraphs[j].keys():
-                m = triangle_count(int_model, ext_model, [subgraphs[j][k]], subsubgraphs[j][k], subgraph_max_nodes[j])
+                m = star2_count(int_model, ext_model, [subgraphs[j][k]], subsubgraphs[j][k], subgraph_max_nodes[j])
                 count = count + m
         pred = predictor(count)
         pred = new_round(pred, 0.5)
@@ -118,16 +118,16 @@ def main(args):
 
     print("Variance: ", variance)
 
-    collater_fn = frag_collater_K4()
+    collater_fn = frag_collater_C4()
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=collater_fn)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, collate_fn=collater_fn)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, collate_fn=collater_fn)
 
-    int_triangle = localGNN_K4(1, 512).to(device)
-    ext_triangle = new_external(1, 64).to(device)
+    int_2star = localGNN_C4(1, 512).to(device)
+    ext_2star = new_external(1, 64).to(device)
 
-    int_triangle.load_state_dict(torch.load('/hdfs1/Data/Shubhajit/Sub-Structure-GNN/save/triangle_insig/Int_GNN_triangle_dataset_2.pt'))
-    ext_triangle.load_state_dict(torch.load('/hdfs1/Data/Shubhajit/Sub-Structure-GNN/save/triangle_insig/Ext_GNN_triangle_dataset_2.pt'))
+    int_2star.load_state_dict(torch.load('/hdfs1/Data/Shubhajit/Sub-Structure-GNN/save/2star_insig/Int_GNN_2star_dataset_2.pt'))
+    ext_2star.load_state_dict(torch.load('/hdfs1/Data/Shubhajit/Sub-Structure-GNN/save/2star_insig/Ext_GNN_2star_dataset_2.pt'))
 
     predict_model = predictor(1, 64).to(device) 
 
@@ -144,13 +144,13 @@ def main(args):
     for epoch in range(1, args.epochs+1):
         print("=====Epoch {}".format(epoch))
         print('Training...')
-        train_loss = train(args, int_triangle, ext_triangle, predict_model, train_loader, pred_opt, loss_fn1)
+        train_loss = train(args, int_2star, ext_2star, predict_model, train_loader, pred_opt, loss_fn1)
         print('Train loss : {}'.format(train_loss/variance))
 
         print('Evaluating...')
-        valid_loss = eval(args, int_triangle, ext_triangle, predict_model, val_loader, loss_fn1)
+        valid_loss = eval(args, int_2star, ext_2star, predict_model, val_loader, loss_fn1)
         print('Valid loss : {}'.format(valid_loss/variance))
-        test_loss = eval(args, int_triangle, ext_triangle, predict_model, test_loader, loss_fn1)
+        test_loss = eval(args, int_2star, ext_2star, predict_model, test_loader, loss_fn1)
         print('Test loss : {}'.format(test_loss/variance))
         if valid_loss <= best_val_loss:
             if valid_loss == best_val_loss:

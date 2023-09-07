@@ -1,7 +1,8 @@
 # InSig-GNN
-## This is the repository for the paper "**Improving Expressivity of Graph Neural Networks using Localization**".
-![model_new](Image/model_new.png)
 
+## This is the repository for the paper "**Improving Expressivity of Graph Neural Networks using Localization**".
+
+![model_new](Image/model_new.png)
 
 # InsideOut-GNN
 
@@ -19,11 +20,11 @@ python main.py \
 --step 500
 ```
 
-
 To run fragmentation using the previous model:
+
 ```shell
-python fragmentation_main.py \
---task K4/chordal \
+python fragmentation_4.py \
+--task K4 \
 --dataset dataset_1/dataset_2 \
 --batch_size 1 \
 --lr 0.0001 \
