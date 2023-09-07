@@ -38,6 +38,9 @@ def train(int_model, ext_model, loader, int_opt, ext_opt, args):
         ext_model.train()
         ext_opt.zero_grad()
         if args.model == 'insig':
+            int_out = new_round(int_out, 0.5)
+            int_out = int_out.to(device)
+            int_out = int_out.float()
             ext_emb = ext_model(int_out)
         else:
             ext_emb = ext_model(batch_graph)
@@ -69,9 +72,15 @@ def eval(int_model, ext_model, loader, args):
                 subgraphs[g][key] = subgraphs[g][key].to(device)
         batch_graph, int_out = int_model(graphs, subgraphs, max_nodes)
         if args.model == 'insig':
+            int_out = new_round(int_out, 0.5)
+            int_out = int_out.to(device)
+            int_out = int_out.float()
             ext_emb = ext_model(int_out)
         else:
             ext_emb = ext_model(batch_graph)
+        ext_emb = new_round(ext_emb, 0.5)
+        ext_emb = ext_emb.to(device)
+        ext_emb = ext_emb.float()
         loss = loss_fn2(ext_emb, batch_graph.ext_label)
         total_loss += loss.item()
         step += 1
@@ -83,6 +92,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, default='dataset_2')
     parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('--batch_size', type=int, default=1)
+    parser.add_argument('--hidden_dim', type=int, default=512)
     parser.add_argument('--lr', type=float, default=0.0001)
     parser.add_argument('--step', type=int, default=500)
     parser.add_argument('--output_file', type=str)
@@ -140,7 +150,7 @@ if __name__ == '__main__':
     test_curve = []
     best_val_loss = 1000
     best_test_loss = 1000
-    for epoch in range(1, 101):
+    for epoch in range(1, args.epochs+1):
         print("=====Epoch {}".format(epoch))
         print('Training...')
         train_loss = train(Int_GNN, Ext_GNN, train_loader, Int_Opt, Ext_Opt, args)
@@ -151,15 +161,27 @@ if __name__ == '__main__':
         print('Valid loss : {}'.format(valid_loss/variance))
         test_loss = eval(Int_GNN, Ext_GNN, test_loader, args)
         print('Test loss : {}'.format(test_loss/variance))
-        if valid_loss < best_val_loss:
-            best_val_loss = valid_loss
-            best_test_loss = test_loss
-            print("Best Model!")
-            print("Best valid loss : {}".format(best_val_loss/variance))
-            print("Best test loss : {}".format(best_test_loss/variance))
-            #save the best model
-            torch.save(Int_GNN.state_dict(), "save/{}/Int_GNN_{}_{}.pt".format(args.output_file, args.task, args.dataset))
-            torch.save(Ext_GNN.state_dict(), "save/{}/Ext_GNN_{}_{}.pt".format(args.output_file, args.task, args.dataset))
+        if valid_loss <= best_val_loss:
+            if valid_loss == best_val_loss:
+                #only save if the test loss is lower
+                if test_loss < best_test_loss:
+                    best_val_loss = valid_loss
+                    best_test_loss = test_loss
+                    print("Best Model!")
+                    print("Best valid loss : {}".format(best_val_loss/variance))
+                    print("Best test loss : {}".format(best_test_loss/variance))
+                    #save the best model
+                    torch.save(Int_GNN.state_dict(), "save/{}/Int_GNN_{}_{}.pt".format(args.output_file, args.task, args.dataset))
+                    torch.save(Ext_GNN.state_dict(), "save/{}/Ext_GNN_{}_{}.pt".format(args.output_file, args.task, args.dataset))
+            else:
+                best_val_loss = valid_loss
+                best_test_loss = test_loss
+                print("Best Model!")
+                print("Best valid loss : {}".format(best_val_loss/variance))
+                print("Best test loss : {}".format(best_test_loss/variance))
+                #save the best model
+                torch.save(Int_GNN.state_dict(), "save/{}/Int_GNN_{}_{}.pt".format(args.output_file, args.task, args.dataset))
+                torch.save(Ext_GNN.state_dict(), "save/{}/Ext_GNN_{}_{}.pt".format(args.output_file, args.task, args.dataset))
         train_curve.append(train_loss/variance)
         valid_curve.append(valid_loss/variance)
         test_curve.append(test_loss/variance)
