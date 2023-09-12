@@ -113,7 +113,7 @@ def main(args):
         val_dataset = dataset[int(len(dataset)*0.8):int(len(dataset)*0.9)]
         test_dataset = dataset[int(len(dataset)*0.9):]
 
-    variance = torch.std(dataset.data.K4.to(torch.float))**2
+    variance = torch.std(dataset.data.C4.to(torch.float))**2
 
 
     print("Variance: ", variance)

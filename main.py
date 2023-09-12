@@ -118,13 +118,15 @@ if __name__ == '__main__':
         variance = torch.std(dataset.data.triangle.to(torch.float32))**2
     elif args.task == '3star':
         variance = torch.std(dataset.data.star.to(torch.float32))**2
-    elif args.task == 'C4':
-        variance = torch.std(dataset.data.C4.to(torch.float32))**2
     elif args.task == 'chordal':
         variance = torch.std(dataset.data.chordal_cycle.to(torch.float32))**2
     elif args.task == '2star':
         variance = torch.std(dataset.data.star_2.to(torch.float32))**2
-
+    elif args.task == "local_nodes":
+        variance = torch.tensor(1.0)    
+    elif args.task == "local_edges":
+        variance = torch.tensor(1.0)    
+        
     print("Variance: ", variance)
 
     collater_fn = collater(args.task)
