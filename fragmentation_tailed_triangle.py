@@ -3,7 +3,7 @@ import argparse
 from model import *
 from helper import *
 from dataset_creation import *
-from torch.utils.data import DataLoader
+from torch.utils.data import TensorDataset, DataLoader
 import os
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -79,11 +79,17 @@ def train(args, int_node, ext_node, int_edge, ext_edge, predictor, loader, pred_
 
         pred_opt.zero_grad()
         new_inp = torch.cat((count_edge, count_node), dim=1).to(device)
-        pred = predictor(new_inp)
-        loss = loss_fn1(pred.squeeze(), graphs[0].ext_label)
-        loss.backward()
-        pred_opt.step()
-        total_loss_int += loss.item()
+        new_train_data = TensorDataset(new_inp, graphs[0].ext_label)
+        new_train_loader = DataLoader(
+            new_train_data, batch_size=1, shuffle=True)
+        for batch in new_train_loader:
+            new_inp = batch[0].to(device)
+            label = batch[1].to(device)
+            pred = predictor(new_inp)
+            loss = loss_fn1(pred.squeeze(), label)
+            loss.backward()
+            pred_opt.step()
+            total_loss_int += loss.item()
         step += 1
         if step % args.step == 0:
             print("Step: {}, Loss: {}".format(
@@ -94,7 +100,7 @@ def train(args, int_node, ext_node, int_edge, ext_edge, predictor, loader, pred_
 
 def eval(args, int_node, ext_node, int_edge, ext_edge, predictor, loader, loss_fn1):
     step = 0
-    total_loss = 0
+    total_loss_int = 0
     predictor.eval()
     for batch in tqdm(loader):
         graphs = batch[0]
@@ -128,14 +134,20 @@ def eval(args, int_node, ext_node, int_edge, ext_edge, predictor, loader, loss_f
                 n_c = torch.tensor([[c3, c4]]).to(device)
                 count_node = torch.cat((count_node, n_c), 0)
         new_inp = torch.cat((count_edge, count_node), dim=1).to(device)
-        pred = predictor(new_inp)
-        pred = new_round(pred, 0.5)
-        pred = pred.to(device)
-        pred = pred.float()
-        loss = loss_fn1(pred.squeeze(), graphs[0].ext_label)
-        total_loss += loss.item()
+        new_train_data = TensorDataset(new_inp, graphs[0].ext_label)
+        new_train_loader = DataLoader(
+            new_train_data, batch_size=1, shuffle=False)
+        for batch in new_train_loader:
+            new_inp = batch[0].to(device)
+            label = batch[1].to(device)
+            pred = predictor(new_inp)
+            pred = new_round(pred, 0.5)
+            pred = pred.to(device)
+            pred = pred.float()
+            loss = loss_fn1(pred.squeeze(), label)
+            total_loss_int += loss.item()
         step += 1
-    return total_loss / step
+    return total_loss_int / step
 
 
 def main(args):
@@ -181,7 +193,7 @@ def main(args):
     predict_model = predictor_tailed_triangle(4, 64).to(device)
 
     pred_opt = torch.optim.Adam(predict_model.parameters(), lr=args.lr)
-    loss_fn1 = torch.nn.L1Loss(reduction='sum')
+    loss_fn1 = torch.nn.L1Loss(reduction='mean')
 
     train_curve = []
     valid_curve = []
