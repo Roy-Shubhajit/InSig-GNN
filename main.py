@@ -9,8 +9,10 @@ import os
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
 
 def train(int_model, ext_model, loader, int_opt, ext_opt, args):
     step = 0
@@ -21,7 +23,7 @@ def train(int_model, ext_model, loader, int_opt, ext_opt, args):
         subgraphs = batch[1]
         internal_labels = batch[2].to(device)
         max_nodes = batch[3]
-        
+
         for g in range(len(graphs)):
             graphs[g] = graphs[g].to(device)
             for key in subgraphs[g].keys():
@@ -55,6 +57,7 @@ def train(int_model, ext_model, loader, int_opt, ext_opt, args):
                 step, total_loss_int/step, total_loss_ext/step))
     return total_loss_ext / step
 
+
 def eval(int_model, ext_model, loader, args):
     int_model.eval()
     ext_model.eval()
@@ -65,7 +68,7 @@ def eval(int_model, ext_model, loader, args):
         subgraphs = batch[1]
         internal_labels = batch[2].to(device)
         max_nodes = batch[3]
-        
+
         for g in range(len(graphs)):
             graphs[g] = graphs[g].to(device)
             for key in subgraphs[g].keys():
@@ -86,6 +89,7 @@ def eval(int_model, ext_model, loader, args):
         step += 1
     return total_loss / step
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Sub-Structure GNN')
     parser.add_argument('--task', type=str, default='triangle')
@@ -102,7 +106,6 @@ if __name__ == '__main__':
     if 'save/'+args.output_file not in os.listdir():
         os.mkdir('save/'+args.output_file)
 
-
     if args.dataset == 'dataset_1':
         dataset = Dataset_1_orig(root="data/Dataset1", pre_transform=None)
         train_dataset = dataset[:int(len(dataset)*0.8)]
@@ -113,26 +116,14 @@ if __name__ == '__main__':
         train_dataset = dataset[:int(len(dataset)*0.8)]
         val_dataset = dataset[int(len(dataset)*0.8):int(len(dataset)*0.9)]
         test_dataset = dataset[int(len(dataset)*0.9):]
-    
-    if args.task == 'triangle':
-        variance = torch.std(dataset.data.triangle.to(torch.float32))**2
-    elif args.task == '3star':
-        variance = torch.std(dataset.data.star.to(torch.float32))**2
-    elif args.task == 'chordal':
-        variance = torch.std(dataset.data.chordal_cycle.to(torch.float32))**2
-    elif args.task == '2star':
-        variance = torch.std(dataset.data.star_2.to(torch.float32))**2
-    elif args.task == "local_nodes":
-        variance = torch.tensor(1.0)    
-    elif args.task == "local_edges":
-        variance = torch.tensor(1.0)    
-        
-    print("Variance: ", variance)
 
     collater_fn = collater(args.task)
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, drop_last=True, collate_fn=collater_fn)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, drop_last=True, collate_fn=collater_fn)
-    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, drop_last=True, collate_fn=collater_fn)
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size,
+                              shuffle=True, drop_last=True, collate_fn=collater_fn)
+    val_loader = DataLoader(val_dataset, batch_size=args.batch_size,
+                            shuffle=False, drop_last=True, collate_fn=collater_fn)
+    test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
+                             shuffle=False, drop_last=True, collate_fn=collater_fn)
 
     Int_GNN = localGNN(1, 512).to(device)
     if args.model == 'insig':
@@ -144,18 +135,33 @@ if __name__ == '__main__':
     loss_fn1 = torch.nn.L1Loss(reduction='mean')
     loss_fn2 = torch.nn.L1Loss(reduction='mean')
 
-    print("Number of parameters in Int_GNN: ", count_parameters(Int_GNN))
-    print("Number of parameters in Ext_GNN: ", count_parameters(Ext_GNN))
-
     train_curve = []
     valid_curve = []
     test_curve = []
     best_val_loss = 1000
     best_test_loss = 1000
+
+    labels = torch.tensor([]).to(device)
+    for batch in tqdm(train_loader):
+        labels = torch.cat(
+            (labels, torch.sum(batch[2]).reshape(1).to(device)), 0)
+    for batch in tqdm(val_loader):
+        labels = torch.cat(
+            (labels, torch.sum(batch[2]).reshape(1).to(device)), 0)
+    for batch in tqdm(test_loader):
+        labels = torch.cat(
+            (labels, torch.sum(batch[2]).reshape(1).to(device)), 0)
+    variance = torch.std(labels)**2
+
+    print("Variance: ", variance.item())
+    print("Number of parameters in Int_GNN: ", count_parameters(Int_GNN))
+    print("Number of parameters in Ext_GNN: ", count_parameters(Ext_GNN))
+
     for epoch in range(1, args.epochs+1):
         print("=====Epoch {}".format(epoch))
         print('Training...')
-        train_loss = train(Int_GNN, Ext_GNN, train_loader, Int_Opt, Ext_Opt, args)
+        train_loss = train(Int_GNN, Ext_GNN, train_loader,
+                           Int_Opt, Ext_Opt, args)
         print('Train loss : {}'.format(train_loss/variance))
 
         print('Evaluating...')
@@ -165,31 +171,33 @@ if __name__ == '__main__':
         print('Test loss : {}'.format(test_loss/variance))
         if valid_loss <= best_val_loss:
             if valid_loss == best_val_loss:
-                #only save if the test loss is lower
+                # only save if the test loss is lower
                 if test_loss < best_test_loss:
                     best_val_loss = valid_loss
                     best_test_loss = test_loss
                     print("Best Model!")
                     print("Best valid loss : {}".format(best_val_loss/variance))
-                    print("Best test loss : {}".format(best_test_loss/variance))
-                    #save the best model
-                    torch.save(Int_GNN.state_dict(), "save/{}/Int_GNN_{}_{}.pt".format(args.output_file, args.task, args.dataset))
-                    torch.save(Ext_GNN.state_dict(), "save/{}/Ext_GNN_{}_{}.pt".format(args.output_file, args.task, args.dataset))
+                    print("Best test loss : {}".format(
+                        best_test_loss/variance))
+                    # save the best model
+                    torch.save(Int_GNN.state_dict(
+                    ), "save/{}/Int_GNN_{}_{}.pt".format(args.output_file, args.task, args.dataset))
+                    torch.save(Ext_GNN.state_dict(
+                    ), "save/{}/Ext_GNN_{}_{}.pt".format(args.output_file, args.task, args.dataset))
             else:
                 best_val_loss = valid_loss
                 best_test_loss = test_loss
                 print("Best Model!")
                 print("Best valid loss : {}".format(best_val_loss/variance))
                 print("Best test loss : {}".format(best_test_loss/variance))
-                #save the best model
-                torch.save(Int_GNN.state_dict(), "save/{}/Int_GNN_{}_{}.pt".format(args.output_file, args.task, args.dataset))
-                torch.save(Ext_GNN.state_dict(), "save/{}/Ext_GNN_{}_{}.pt".format(args.output_file, args.task, args.dataset))
+                # save the best model
+                torch.save(Int_GNN.state_dict(
+                ), "save/{}/Int_GNN_{}_{}.pt".format(args.output_file, args.task, args.dataset))
+                torch.save(Ext_GNN.state_dict(
+                ), "save/{}/Ext_GNN_{}_{}.pt".format(args.output_file, args.task, args.dataset))
         train_curve.append(train_loss/variance)
         valid_curve.append(valid_loss/variance)
         test_curve.append(test_loss/variance)
 
     print("Best valid loss : {}".format(best_val_loss/variance))
     print("Best test loss : {}".format(best_test_loss/variance))
-
-    
-    
