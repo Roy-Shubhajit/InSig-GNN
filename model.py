@@ -197,8 +197,6 @@ class localGNN_C4(torch.nn.Module):
                 edge_index = subgraph.edge_index
                 subgraph.x = torch.ones(
                     [subgraph.num_nodes, 1]).to(edge_index.device)
-                #print(subgraph, key)
-                #print(edge_index)
                 x = self.conv1(subgraph.x, edge_index)
                 x = self.conv2(x, edge_index)
                 x = self.fc0(x)
@@ -253,7 +251,7 @@ class localGNN_tailed_triangle(torch.nn.Module):
                 subgraph = sub_graphs[key]
                 edge_index = subgraph.edge_index
                 subgraph.x = torch.ones(
-                    [max_nodes, 1]).to(edge_index.device)
+                    [subgraph.num_nodes, 1]).to(edge_index.device)
                 x = self.conv1(subgraph.x, edge_index)
                 x = self.conv2(x, edge_index)
                 x = self.fc0(x)

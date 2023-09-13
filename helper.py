@@ -365,7 +365,6 @@ class frag_collater_tailed_triangle():
         edge_index, num_nodes = data.edge_index, data.num_nodes
         subgraphs = {}
         edge_index_ = edge_index.T
-        edge_index_ = edge_index_.T
         node_graph_edge = torch.tensor([], dtype=torch.long)
         edge_graph_edge = torch.tensor([], dtype=torch.long)
         for edge in edge_index_:
@@ -383,7 +382,6 @@ class frag_collater_tailed_triangle():
         if len(node_graph_edge.shape) == 1:
             node_graph_edge = node_graph_edge.reshape(
                 2, node_graph_edge.shape[0])
-
         subgraphs['node_graph'] = Data(edge_index=node_graph_edge)
         subgraphs['edge_graph'] = Data(edge_index=edge_graph_edge)
         num_node_edges = node_graph_edge.shape[1]//2

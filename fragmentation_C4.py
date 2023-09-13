@@ -56,7 +56,7 @@ def train(args, int_model, ext_model, predictor, loader, pred_opt, loss_fn1):
         pred_opt.step()
         total_loss_int += loss.item()
         step += 1
-        if step % 500 == 0:
+        if step % args.step == 0:
             print("Step: {}, Loss: {}".format(
                 step, total_loss_int/step))
             

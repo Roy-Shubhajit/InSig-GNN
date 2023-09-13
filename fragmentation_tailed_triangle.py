@@ -57,8 +57,8 @@ def train(args, int_node, ext_node, int_edge, ext_edge, predictor, loader, pred_
         labels = batch[2].to(device)
         max_nodes = batch[3]
         subgraph_max_nodes = batch[5]
-        count_edge = torch.empty((len(subgraphs), 2)).to(device)
-        count_node = torch.empty((len(subgraphs), 2)).to(device)
+        count_edge = torch.tensor([]).to(device)
+        count_node = torch.tensor([]).to(device)
         for j in range(len(subgraphs)):
             for k in subgraphs[j].keys():
                 c1 = edge_count(int_edge, ext_edge, [subsubgraphs[j][k][0]['node_graph']], [{'node_graph': subsubgraphs[j][k][0]['node_graph']}], subgraph_max_nodes[j])
@@ -79,7 +79,7 @@ def train(args, int_node, ext_node, int_edge, ext_edge, predictor, loader, pred_
         pred_opt.step()
         total_loss_int += loss.item()
         step += 1
-        if step % 500 == 0:
+        if step % args.step == 0:
             print("Step: {}, Loss: {}".format(
                 step, total_loss_int/step))
             
@@ -106,22 +106,18 @@ def eval(args, int_node, ext_node, int_edge, ext_edge, predictor, loader, loss_f
         labels = batch[2].to(device)
         max_nodes = batch[3]
         subgraph_max_nodes = batch[5]
-        count_edge = torch.empty((len(subgraphs), 2)).to(device)
-        count_node = torch.empty((len(subgraphs), 2)).to(device)
+        count_edge = torch.tensor([]).to(device)
+        count_node = torch.tensor([]).to(device)
         for j in range(len(subgraphs)):
             for k in subgraphs[j].keys():
-                if len(subsubgraphs[j][k][0].keys()) == 0:
-                    count_edge = torch.cat((count_edge, torch.tensor([[0, 0]]).to(device)), 0)
-                    count_node = torch.cat((count_node, torch.tensor([[0, 0]]).to(device)), 0)
-                else: 
-                    c1 = edge_count(int_edge, ext_edge, [subgraphs[j][k]], [{'node_graph': subsubgraphs[j][k][0]['node_graph']}], subgraph_max_nodes[j])
-                    c2 = edge_count(int_edge, ext_edge, [subgraphs[j][k]], [{'edge_graph': subsubgraphs[j][k][0]['edge_graph']}], subgraph_max_nodes[j])
-                    e_c = torch.tensor([[c1, c2]]).to(device)
-                    count_edge = torch.cat((count_edge, e_c), 0)
-                    c3 = node_count(int_node, ext_node, [subgraphs[j][k]], [{'node_graph': subsubgraphs[j][k][0]['node_graph']}], subgraph_max_nodes[j])
-                    c4 = node_count(int_node, ext_node, [subgraphs[j][k]], [{'edge_graph': subsubgraphs[j][k][0]['edge_graph']}], subgraph_max_nodes[j])
-                    n_c = torch.tensor([[c3, c4]]).to(device)
-                    count_node = torch.cat((count_node,n_c), 0)
+                c1 = edge_count(int_edge, ext_edge, [subgraphs[j][k]], [{'node_graph': subsubgraphs[j][k][0]['node_graph']}], subgraph_max_nodes[j])
+                c2 = edge_count(int_edge, ext_edge, [subgraphs[j][k]], [{'edge_graph': subsubgraphs[j][k][0]['edge_graph']}], subgraph_max_nodes[j])
+                e_c = torch.tensor([[c1,c2]]).to(device)
+                count_edge = torch.cat((count_edge, e_c), 0)
+                c3 = node_count(int_node, ext_node, [subgraphs[j][k]], [{'node_graph': subsubgraphs[j][k][0]['node_graph']}], subgraph_max_nodes[j])
+                c4 = node_count(int_node, ext_node, [subgraphs[j][k]], [{'edge_graph': subsubgraphs[j][k][0]['edge_graph']}], subgraph_max_nodes[j])
+                n_c = torch.tensor([[c3,c4]]).to(device)
+                count_node = torch.cat((count_node,n_c), 0)
         new_inp = torch.cat((count_edge, count_node), dim=1).to(device)
         pred = predictor(new_inp.T)
         pred = new_round(pred, 0.5)
@@ -192,7 +188,7 @@ def main(args):
         print('Evaluating...')
         valid_loss = eval(args, int_node, ext_node, int_edge, ext_edge, predict_model, val_loader, loss_fn1)
         print('Valid loss : {}'.format(valid_loss/variance))
-        test_loss = eval(args, int_node, ext_node, predict_model, test_loader, loss_fn1)
+        test_loss = eval(args, int_node, ext_node, int_edge, ext_edge, predict_model, test_loader, loss_fn1)
         print('Test loss : {}'.format(test_loss/variance))
         if valid_loss <= best_val_loss:
             if valid_loss == best_val_loss:
