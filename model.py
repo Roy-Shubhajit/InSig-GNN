@@ -118,12 +118,15 @@ class predictor_tailed_triangle(torch.nn.Module):
         super(predictor_tailed_triangle, self).__init__()
         self.hidden = hidden
         self.fc1 = Linear(input_emb, hidden)
-        self.fc2 = Linear(hidden, 1)
+        self.fc2 = Linear(hidden, hidden)
+        self.fc3 = Linear(hidden, 1)
 
     def forward(self, x):
         x = self.fc1(x)
-        x = F.gelu(x)
+        x = F.relu(x)
         x = self.fc2(x)
+        x = F.relu(x)
+        x = self.fc3(x)
         return x
 
 
