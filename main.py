@@ -125,11 +125,11 @@ if __name__ == '__main__':
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
                              shuffle=False, drop_last=True, collate_fn=collater_fn)
 
-    Int_GNN = localGNN(1, 512).to(device)
+    Int_GNN = localGNN(1, args.hidden_dim).to(device)
     if args.model == 'insig':
         Ext_GNN = new_external(1, 64).to(device)
     else:
-        Ext_GNN = globalGNN(1, 512).to(device)
+        Ext_GNN = globalGNN(1, args.hidden_dim).to(device)
     Int_Opt = torch.optim.Adam(Int_GNN.parameters(), lr=args.lr)
     Ext_Opt = torch.optim.Adam(Ext_GNN.parameters(), lr=args.lr)
     loss_fn1 = torch.nn.L1Loss(reduction='mean')
