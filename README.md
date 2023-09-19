@@ -24,7 +24,7 @@ python main.py \
 To run fragmentation using the previous model:
 
 ```shell
-python fragmentation_{K4/C4}.py \
+python fragmentation_{K4/C4/tailed_triangle}.py \
 --dataset dataset_1/dataset_2 \
 --batch_size 1 \
 --lr 0.0001 \
