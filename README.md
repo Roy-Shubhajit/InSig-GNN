@@ -1,7 +1,6 @@
+## This is the repository for the paper "**Subgraph Counting with Graph Neural Networks via Fragmentation**".
+
 # InSig-GNN
-
-## This is the repository for the paper "**Improving Expressivity of Graph Neural Networks using Localization**".
-
 ![model_new](Image/model_new.png)
 
 # InsideOut-GNN
