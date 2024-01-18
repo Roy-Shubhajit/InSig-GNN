@@ -1,12 +1,13 @@
 from tqdm import tqdm
 import argparse
+import json
 from model import *
 from helper import *
 from dataset_creation import *
 from torch.utils.data import DataLoader
 import os
-
-
+import time
+import numpy as np
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
@@ -96,11 +97,13 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, default='dataset_2')
     parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('--batch_size', type=int, default=1)
-    parser.add_argument('--hidden_dim', type=int, default=512)
+    parser.add_argument('--hidden_dim', type=int, default=4)
+    parser.add_argument('--num_layers', type=int, default=2)
     parser.add_argument('--lr', type=float, default=0.0001)
     parser.add_argument('--step', type=int, default=500)
     parser.add_argument('--output_file', type=str)
     parser.add_argument('--model', type=str, default='insig')
+    parser.add_argument('--ablation', type=str, default='none')
     args = parser.parse_args()
 
     if 'save/'+args.output_file not in os.listdir():
@@ -125,11 +128,11 @@ if __name__ == '__main__':
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
                              shuffle=False, drop_last=True, collate_fn=collater_fn)
 
-    Int_GNN = localGNN(1, args.hidden_dim).to(device)
+    Int_GNN = localGNN(args.num_layers, args.hidden_dim).to(device)
     if args.model == 'insig':
-        Ext_GNN = new_external(1, 64).to(device)
+        Ext_GNN = new_external(1, 32).to(device)
     else:
-        Ext_GNN = globalGNN(1, args.hidden_dim).to(device)
+        Ext_GNN = globalGNN(args.num_layers, args.hidden_dim).to(device)
     Int_Opt = torch.optim.Adam(Int_GNN.parameters(), lr=args.lr)
     Ext_Opt = torch.optim.Adam(Ext_GNN.parameters(), lr=args.lr)
     loss_fn1 = torch.nn.L1Loss(reduction='mean')
@@ -157,15 +160,23 @@ if __name__ == '__main__':
     print("Number of parameters in Int_GNN: ", count_parameters(Int_GNN))
     print("Number of parameters in Ext_GNN: ", count_parameters(Ext_GNN))
 
+    train_time = []
+    eval_time = []
     for epoch in range(1, args.epochs+1):
         print("=====Epoch {}".format(epoch))
         print('Training...')
+        start_time = time.time()
         train_loss = train(Int_GNN, Ext_GNN, train_loader,
                            Int_Opt, Ext_Opt, args)
+        end_time = time.time()
+        train_time.append(end_time-start_time)
         print('Train loss : {}'.format(train_loss/variance))
 
         print('Evaluating...')
+        start_time = time.time()
         valid_loss = eval(Int_GNN, Ext_GNN, val_loader, args)
+        end_time = time.time()
+        eval_time.append((end_time-start_time)/len(val_dataset))
         print('Valid loss : {}'.format(valid_loss/variance))
         test_loss = eval(Int_GNN, Ext_GNN, test_loader, args)
         print('Test loss : {}'.format(test_loss/variance))
@@ -201,3 +212,17 @@ if __name__ == '__main__':
 
     print("Best valid loss : {}".format(best_val_loss/variance))
     print("Best test loss : {}".format(best_test_loss/variance))
+    print("Average train time per epoch: {}".format(np.mean(train_time)))
+    print("Average inference time per sample: {}".format(np.mean(eval_time)))
+
+    import csv
+    if args.ablation == 'num_layers':
+        with open(f'save/ablation/{args.task}_num_layers.csv', 'a') as f:
+            writer = csv.writer(f)
+            writer.writerow([args.model, args.dataset, args.num_layers, count_parameters(Int_GNN), count_parameters(Ext_GNN), (best_test_loss/variance).item(), (best_val_loss/variance).item()])
+    elif args.ablation == 'hidden_dim':
+        with open(f'save/ablation/{args.task}_hidden_dim.csv', 'a') as f:
+            writer = csv.writer(f)
+            writer.writerow([args.model, args.dataset, args.hidden_dim, count_parameters(Int_GNN), count_parameters(Ext_GNN), (best_test_loss/variance).item(), (best_val_loss/variance).item()])
+    
+

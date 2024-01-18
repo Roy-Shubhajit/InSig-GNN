@@ -19,10 +19,16 @@ class localGNN(torch.nn.Module):
     def __init__(self, num_layers, hidden):
         super(localGNN, self).__init__()
         self.hidden = hidden
-        self.conv1 = GINConv(Sequential(Linear(1, hidden), GELU(), Linear(
-            hidden, hidden), GELU()), train_eps=False)
-        self.conv2 = GINConv(Sequential(Linear(hidden, hidden), GELU(), Linear(
-            hidden, hidden), GELU()), train_eps=False)
+        self.conv = torch.nn.ModuleList()
+        self.conv.append(GINConv(Sequential(Linear(1, hidden), GELU(), Linear(
+            hidden, hidden), GELU()), train_eps=False))
+        for i in range(num_layers - 1):
+            self.conv.append(GINConv(Sequential(Linear(hidden, hidden), GELU(), Linear(
+                hidden, hidden), GELU()), train_eps=False))
+        #self.conv1 = GINConv(Sequential(Linear(1, hidden), GELU(), Linear(
+            #hidden, hidden), GELU()), train_eps=False)
+        #self.conv2 = GINConv(Sequential(Linear(hidden, hidden), GELU(), Linear(
+            #hidden, hidden), GELU()), train_eps=False)
         self.fc0 = Linear(hidden, hidden)
         self.fc1 = Linear(hidden, 1)
 
@@ -38,8 +44,13 @@ class localGNN(torch.nn.Module):
                 edge_index = subgraph.edge_index
                 subgraph.x = torch.ones(
                     [subgraph.num_nodes, 1]).to(edge_index.device)
-                x = self.conv1(subgraph.x, edge_index)
-                x = self.conv2(x, edge_index)
+                for i in range(len(self.conv)):
+                    if i == 0:
+                        x = self.conv[i](subgraph.x, edge_index)
+                    else:
+                        x = self.conv[i](x, edge_index)
+                #x = self.conv1(subgraph.x, edge_index)
+                #x = self.conv2(x, edge_index)
                 x = self.fc0(x)
                 x = F.gelu(x)
                 if len(x) > 0:
@@ -67,16 +78,27 @@ class globalGNN(torch.nn.Module):
     def __init__(self, num_layers, hidden):
         super(globalGNN, self).__init__()
         self.hidden = hidden
-        self.conv3 = GINConv(Sequential(Linear(hidden, hidden), GELU(), Linear(
-            hidden, hidden), GELU()), train_eps=False)
-        self.conv4 = GINConv(Sequential(Linear(hidden, hidden), GELU(), Linear(
-            hidden, hidden), GELU()), train_eps=False)
+        self.conv = torch.nn.ModuleList()
+        self.conv.append(GINConv(Sequential(Linear(1, hidden), GELU(), Linear(
+            hidden, hidden), GELU()), train_eps=False))
+        for i in range(num_layers - 1):
+            self.conv.append(GINConv(Sequential(Linear(hidden, hidden), GELU(), Linear(
+                hidden, hidden), GELU()), train_eps=False))
+       # self.conv3 = GINConv(Sequential(Linear(hidden, hidden), GELU(), Linear(
+            #hidden, hidden), GELU()), train_eps=False)
+       # self.conv4 = GINConv(Sequential(Linear(hidden, hidden), GELU(), Linear(
+            #hidden, hidden), GELU()), train_eps=False)
         self.fc2 = Linear(hidden, 1)
 
     def forward(self, data):
 
-        x = self.conv3(data.x, data.edge_index)
-        x = self.conv4(x, data.edge_index)
+        #x = self.conv3(data.x, data.edge_index)
+        #x = self.conv4(x, data.edge_index)
+        for i in range(len(self.conv)):
+            if i == 0:
+                x = self.conv[i](data.x, data.edge_index)
+            else:
+                x = self.conv[i](x, data.edge_index)
         x = self.fc2(x)
         x = global_add_pool(x, data.batch)
         return x
@@ -134,10 +156,12 @@ class localGNN_K4(torch.nn.Module):
     def __init__(self, num_layers, hidden):
         super(localGNN_K4, self).__init__()
         self.hidden = hidden
-        self.conv1 = GINConv(Sequential(Linear(1, hidden), GELU(), Linear(
-            hidden, hidden), GELU()), train_eps=False)
-        self.conv2 = GINConv(Sequential(Linear(hidden, hidden), GELU(), Linear(
-            hidden, hidden), GELU()), train_eps=False)
+        self.conv = torch.nn.ModuleList()
+        self.conv.append(GINConv(Sequential(Linear(1, hidden), GELU(), Linear(
+            hidden, hidden), GELU()), train_eps=False))
+        for i in range(num_layers - 1):
+            self.conv.append(GINConv(Sequential(Linear(hidden, hidden), GELU(), Linear(
+                hidden, hidden), GELU()), train_eps=False))
         self.fc0 = Linear(hidden, hidden)
         self.fc1 = Linear(hidden, 1)
 
@@ -153,8 +177,11 @@ class localGNN_K4(torch.nn.Module):
                 edge_index = subgraph.edge_index
                 subgraph.x = torch.ones(
                     [subgraph.num_nodes, 1]).to(edge_index.device)
-                x = self.conv1(subgraph.x, edge_index)
-                x = self.conv2(x, edge_index)
+                for i in range(len(self.conv)):
+                    if i == 0:
+                        x = self.conv[i](subgraph.x, edge_index)
+                    else:
+                        x = self.conv[i](x, edge_index)
                 x = self.fc0(x)
                 x = F.gelu(x)
                 if len(x) > 0:
@@ -194,10 +221,12 @@ class localGNN_C4(torch.nn.Module):
     def __init__(self, num_layers, hidden):
         super(localGNN_C4, self).__init__()
         self.hidden = hidden
-        self.conv1 = GINConv(Sequential(Linear(1, hidden), GELU(), Linear(
-            hidden, hidden), GELU()), train_eps=False)
-        self.conv2 = GINConv(Sequential(Linear(hidden, hidden), GELU(), Linear(
-            hidden, hidden), GELU()), train_eps=False)
+        self.conv = torch.nn.ModuleList()
+        self.conv.append(GINConv(Sequential(Linear(1, hidden), GELU(), Linear(
+            hidden, hidden), GELU()), train_eps=False))
+        for i in range(num_layers - 1):
+            self.conv.append(GINConv(Sequential(Linear(hidden, hidden), GELU(), Linear(
+                hidden, hidden), GELU()), train_eps=False))
         self.fc0 = Linear(hidden, hidden)
         self.fc1 = Linear(hidden, 1)
 
@@ -213,8 +242,11 @@ class localGNN_C4(torch.nn.Module):
                 edge_index = subgraph.edge_index
                 subgraph.x = torch.ones(
                     [subgraph.num_nodes, 1]).to(edge_index.device)
-                x = self.conv1(subgraph.x, edge_index)
-                x = self.conv2(x, edge_index)
+                for i in range(len(self.conv)):
+                    if i == 0:
+                        x = self.conv[i](subgraph.x, edge_index)
+                    else:
+                        x = self.conv[i](x, edge_index)
                 x = self.fc0(x)
                 x = F.gelu(x)
                 if len(x) > 0:
@@ -254,10 +286,12 @@ class localGNN_tailed_triangle(torch.nn.Module):
     def __init__(self, num_layers, hidden):
         super(localGNN_tailed_triangle, self).__init__()
         self.hidden = hidden
-        self.conv1 = GINConv(Sequential(Linear(1, hidden), GELU(), Linear(
-            hidden, hidden), GELU()), train_eps=False)
-        self.conv2 = GINConv(Sequential(Linear(hidden, hidden), GELU(), Linear(
-            hidden, hidden), GELU()), train_eps=False)
+        self.conv = torch.nn.ModuleList()
+        self.conv.append(GINConv(Sequential(Linear(1, hidden), GELU(), Linear(
+            hidden, hidden), GELU()), train_eps=False))
+        for i in range(num_layers - 1):
+            self.conv.append(GINConv(Sequential(Linear(hidden, hidden), GELU(), Linear(
+                hidden, hidden), GELU()), train_eps=False))
         self.fc0 = Linear(hidden, hidden)
         self.fc1 = Linear(hidden, 1)
 
@@ -273,8 +307,11 @@ class localGNN_tailed_triangle(torch.nn.Module):
                 edge_index = subgraph.edge_index
                 subgraph.x = torch.ones(
                     [max_nodes, 1]).to(edge_index.device)
-                x = self.conv1(subgraph.x, edge_index)
-                x = self.conv2(x, edge_index)
+                for i in range(len(self.conv)):
+                    if i == 0:
+                        x = self.conv[i](subgraph.x, edge_index)
+                    else:
+                        x = self.conv[i](x, edge_index)
                 x = self.fc0(x)
                 x = F.gelu(x)
                 if len(x) > 0:

@@ -126,13 +126,11 @@ def main(args):
     test_loader = DataLoader(
         test_dataset, batch_size=args.batch_size, shuffle=False, collate_fn=collater_fn)
 
-    int_2star = localGNN_C4(1, 512).to(device)
-    ext_2star = new_external(1, 64).to(device)
+    int_2star = localGNN_C4(args.num_layers, args.hidden_dim).to(device)
+    ext_2star = new_external(2, 32).to(device)
 
-    int_2star.load_state_dict(torch.load(
-        '/hdfs1/Data/Shubhajit/Sub-Structure-GNN/save/2star_insig/Int_GNN_2star_dataset_2.pt'))
-    ext_2star.load_state_dict(torch.load(
-        '/hdfs1/Data/Shubhajit/Sub-Structure-GNN/save/2star_insig/Ext_GNN_2star_dataset_2.pt'))
+    int_2star.load_state_dict(torch.load(args.int_loc))
+    ext_2star.load_state_dict(torch.load(args.ext_loc))
 
     predict_model = predictor(1, 64).to(device)
 
@@ -207,13 +205,17 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Sub-Structure GNN')
     parser.add_argument('--dataset', type=str, default='dataset_2',
                         help='Dataset: dataset_1 or dataset_2')
+    parser.add_argument('--num_layers', type=int, default=2)
     parser.add_argument('--epochs', type=int, default=100,
                         help='Number of epochs')
     parser.add_argument('--output_file', type=str,
                         default='triangle_2', help='Output file name')
     parser.add_argument('--lr', type=float, default=0.0001,
                         help='Learning rate')
+    parser.add_argument('--hidden_dim', type=int, default=4)
     parser.add_argument('--batch_size', type=int, default=1, help='Batch size')
     parser.add_argument('--step', type=int, default=500)
+    parser.add_argument('--int_loc', type=str)
+    parser.add_argument('--ext_loc', type=str)
     args = parser.parse_args()
     main(args)

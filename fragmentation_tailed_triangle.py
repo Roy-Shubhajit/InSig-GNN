@@ -174,8 +174,8 @@ def main(args):
     test_loader = DataLoader(
         test_dataset, batch_size=args.batch_size, shuffle=False, collate_fn=collater_fn)
 
-    int_node = localGNN_tailed_triangle(1, 512).to(device)
-    ext_node = new_external(1, 64).to(device)
+    int_node = localGNN_tailed_triangle(args.num_layers, args.hidden_dim).to(device)
+    ext_node = new_external(2, 64).to(device)
 
     int_node.load_state_dict(torch.load(
         '/hdfs1/Data/Shubhajit/Sub-Structure-GNN/save/local_nodes/Int_GNN_local_nodes_dataset_2.pt'))
@@ -266,10 +266,12 @@ if __name__ == "__main__":
                         help='Dataset: dataset_1 or dataset_2')
     parser.add_argument('--epochs', type=int, default=100,
                         help='Number of epochs')
+    parser.add_argument('--num_layers', type=int, default=2)
     parser.add_argument('--output_file', type=str,
                         default='triangle_2', help='Output file name')
     parser.add_argument('--lr', type=float, default=0.0001,
                         help='Learning rate')
+    parser.add_argument('--hidden_dim', type=int, default=4)
     parser.add_argument('--batch_size', type=int, default=1, help='Batch size')
     parser.add_argument('--step', type=int, default=500)
     args = parser.parse_args()
