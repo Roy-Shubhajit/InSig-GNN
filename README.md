@@ -46,3 +46,7 @@ To run ablation study on hidden dimension or number of layers:
 chmod +x ablation_{hidden_dim/num_layers}.sh
 ./ablation_{hidden_dim/num_layers}.sh
 ```
+
+Please Note, for predicting K4, the internal and external models are of triangle. The set of arguments should be given corresponding to the argument given for learning traingle model. 
+
+Similarly, for predicting C4, the internal and external models are of 2star. Predicting Tailed Traingle requires two different models, local_edge and local_nodes. 
