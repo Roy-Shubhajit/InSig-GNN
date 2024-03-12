@@ -143,19 +143,19 @@ class collater():
 
         if self.task == "triangle":
             new_data = Data(edge_index=total_edge_index.T)
-            new_data.ext_label_dataset = data.triangle
+            #new_data.ext_label_dataset = data.triangle
             new_data.ext_label = torch.tensor([num_edges//6])
         elif self.task == "3star":
             new_data = Data(edge_index=data.edge_index)
-            new_data.ext_label_dataset = data.star
+            #new_data.ext_label_dataset = data.star
             new_data.ext_label = torch.sum(k)
         elif self.task == "chordal":
-            new_data = Data(edge_index=total_edge_index.T)
-            new_data.ext_label_dataset = data.chordal_cycle
+            new_data = Data(edge_index=edge_index)
+            #new_data.ext_label_dataset = data.chordal_cycle
             new_data.ext_label = torch.sum(k)//2
         elif self.task == "2star":
             new_data = Data(edge_index=data.edge_index)
-            new_data.ext_label_dataset = data.star_2
+            #new_data.ext_label_dataset = data.star_2
             new_data.ext_label = torch.sum(k)
         elif self.task == "local_nodes":
             new_data = Data(edge_index=data.edge_index)
@@ -415,7 +415,7 @@ class frag_collater_tailed_triangle():
 
         new_data = Data(edge_index=total_edge_index.T)
         new_data.ext_label = l
-        new_data.ext_label_dataset = data.tailed_triangle
+        #new_data.ext_label_dataset = data.tailed_triangle
         return new_data, subgraphs, l, subsubgraphs, max([d.num_nodes for d in subgraphs.values()])
 
     def __call__(self, data):

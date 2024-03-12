@@ -12,7 +12,7 @@ The model can be trained using the following command:
 ```shell
 python main.py \
 --task triangle/3star/2star/chordal \
---dataset dataset_1/dataset_2 \
+--dataset dataset_1/dataset_2/dataset_chembl/zinc_subset/zinc_full \
 --batch_size 1 \
 --lr 0.0001 \
 --hidden_dim 64 \
@@ -27,7 +27,7 @@ To run fragmentation using the previous model:
 
 ```shell
 python fragmentation_{K4/C4/tailed_triangle}.py \
---dataset dataset_1/dataset_2 \
+--dataset dataset_1/dataset_2/dataset_chembl/zinc_subset/zinc_full \
 --num_layers 2 \
 --batch_size 1 \
 --lr 0.0001 \

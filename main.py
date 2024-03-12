@@ -8,6 +8,8 @@ from torch.utils.data import DataLoader
 import os
 import time
 import numpy as np
+from torch_geometric.datasets import ZINC
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
@@ -119,6 +121,19 @@ if __name__ == '__main__':
         train_dataset = dataset[:int(len(dataset)*0.8)]
         val_dataset = dataset[int(len(dataset)*0.8):int(len(dataset)*0.9)]
         test_dataset = dataset[int(len(dataset)*0.9):]
+    elif args.dataset == 'dataset_chembl':
+        dataset = Dataset_chembl(root="data/Dataset_chembl", pre_transform=None)
+        train_dataset = dataset[:int(len(dataset)*0.8)]
+        val_dataset = dataset[int(len(dataset)*0.8):int(len(dataset)*0.9)]
+        test_dataset = dataset[int(len(dataset)*0.9):]
+    elif args.dataset == 'zinc_subset':
+        train_dataset = ZINC(root='data/ZINC', subset=True, split='train', pre_transform=None)
+        test_dataset = ZINC(root='data/ZINC', subset=True, split='test', pre_transform=None)
+        val_dataset = ZINC(root='data/ZINC', subset=True, split='val', pre_transform=None)  
+    elif args.dataset == 'zinc_full':
+        train_dataset = ZINC(root='data/ZINC', subset=False, split='train', pre_transform=None)
+        test_dataset = ZINC(root='data/ZINC', subset=False, split='test', pre_transform=None)
+        val_dataset = ZINC(root='data/ZINC', subset=False, split='val', pre_transform=None)  
 
     collater_fn = collater(args.task)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size,
@@ -146,15 +161,20 @@ if __name__ == '__main__':
 
     labels = torch.tensor([]).to(device)
     for batch in tqdm(train_loader):
-        labels = torch.cat(
-            (labels, torch.sum(batch[2]).reshape(1).to(device)), 0)
+        for graph in batch[0]:
+            labels = torch.cat(
+            (labels, graph.ext_label.to(device)), 0)
     for batch in tqdm(val_loader):
-        labels = torch.cat(
-            (labels, torch.sum(batch[2]).reshape(1).to(device)), 0)
+        for graph in batch[0]:
+            labels = torch.cat(
+            (labels, graph.ext_label.to(device)), 0)
     for batch in tqdm(test_loader):
-        labels = torch.cat(
-            (labels, torch.sum(batch[2]).reshape(1).to(device)), 0)
+        for graph in batch[0]:
+            labels = torch.cat(
+            (labels, graph.ext_label.to(device)), 0)
     variance = torch.std(labels)**2
+    if  variance == 0:
+        variance = torch.tensor(1)
 
     print("Variance: ", variance.item())
     print("Number of parameters in Int_GNN: ", count_parameters(Int_GNN))

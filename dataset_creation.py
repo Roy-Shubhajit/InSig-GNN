@@ -5,8 +5,11 @@ import warnings
 from torch_geometric.data import Data, InMemoryDataset, download_url, Batch
 from dgl.data.utils import Subset, load_graphs
 import torch
-from torch_geometric.utils import k_hop_subgraph
+from torch_geometric.utils import k_hop_subgraph, to_undirected
 from scipy.special import comb
+from rdkit import Chem
+import pickle
+
 warnings.filterwarnings('ignore')
 
 
@@ -295,6 +298,61 @@ class Dataset_2_orig(InMemoryDataset):
         data_list = []
         for i in zip(glist, all_labels["star"], all_labels["triangle"], all_labels["tailed_triangle"], all_labels["attributed_triangle"], all_labels["chordal_cycle"]):
             data = self.from_dgl(i[0], i[1], i[2], i[3], i[4], i[5])
+            data_list.append(data)
+
+        if self.pre_transform is not None:
+            data_list = [self.pre_transform(data) for data in data_list]
+
+        data, slices = self.collate(data_list)
+        torch.save((data, slices), self.processed_paths[0])
+
+class Dataset_chembl(InMemoryDataset):
+    def __init__(self, root, transform=None, pre_transform=None):
+        super(Dataset_chembl, self).__init__(root, transform, pre_transform)
+        self.data, self.slices = torch.load(self.processed_paths[0])
+
+    @property
+    def raw_file_names(self):
+        return []
+
+    @property
+    def processed_file_names(self):
+        return ['dataset_chembl.pt']
+
+    def download(self):
+        pass
+
+
+    def from_chembl(self, molecule):
+        mol = Chem.MolFromSmiles(molecule)
+        # Get atom and bond information
+        atoms = mol.GetAtoms()
+        bonds = mol.GetBonds()
+        edge_list = []
+
+        # Add bonds to the edge list
+        for bond in bonds:
+            atom1_idx = bond.GetBeginAtomIdx()
+            atom2_idx = bond.GetEndAtomIdx()
+            edge_list.append([atom1_idx, atom2_idx])
+
+        data = Data()
+        data.edge_index = to_undirected(torch.tensor(edge_list, dtype=torch.long).t().contiguous())
+        data.triangle = torch.tensor([0])
+        data.star = torch.tensor([0])
+        data.chordal_cycle = torch.tensor([0])
+        data.star_2 = torch.tensor([0])
+        data.K4 = torch.tensor([0])
+        data.tailed_triangle = torch.tensor([0])
+        data.C4 = torch.tensor([0])
+        return data
+
+    def process(self):
+        with open('/hdfs1/Data/Shubhajit/Sub-Structure-GNN/data/chembl.pkl', 'rb') as f:
+            chembl_data = pickle.load(f)
+        data_list = []
+        for i in chembl_data:
+            data = self.from_chembl(i)
             data_list.append(data)
 
         if self.pre_transform is not None:
