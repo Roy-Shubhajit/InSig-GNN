@@ -34,8 +34,8 @@ python fragmentation_{K4/C4/tailed_triangle}.py \
 --epochs 5 \
 --step 500 \
 --hidden_dim 64 \
---int_loc {location of internal model only for K4 and C4}
---ext_loc {location of external model only for K4 and C4}
+--int_loc {location of internal model only for K4 and C4} \
+--ext_loc {location of external model only for K4 and C4} \
 --output_file {Output File Name}
 ```
 

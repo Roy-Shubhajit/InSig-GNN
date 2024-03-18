@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 import os
 import time
 import numpy as np
-from torch_geometric.datasets import ZINC
+from torch_geometric.datasets import ZINC, QM7b
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -43,7 +43,7 @@ def train(int_model, ext_model, loader, int_opt, ext_opt, args):
         ext_model.train()
         ext_opt.zero_grad()
         if args.model == 'insig':
-            int_out = new_round(int_out, 0.5)
+            int_out = new_round(int_out, args.int_threshold)
             int_out = int_out.to(device)
             int_out = int_out.float()
             ext_emb = ext_model(int_out)
@@ -78,13 +78,13 @@ def eval(int_model, ext_model, loader, args):
                 subgraphs[g][key] = subgraphs[g][key].to(device)
         batch_graph, int_out = int_model(graphs, subgraphs, max_nodes)
         if args.model == 'insig':
-            int_out = new_round(int_out, 0.5)
+            int_out = new_round(int_out, args.int_threshold)
             int_out = int_out.to(device)
             int_out = int_out.float()
             ext_emb = ext_model(int_out)
         else:
             ext_emb = ext_model(batch_graph)
-        ext_emb = new_round(ext_emb, 0.5)
+        ext_emb = new_round(ext_emb, args.ext_threshold)
         ext_emb = ext_emb.to(device)
         ext_emb = ext_emb.float()
         loss = loss_fn2(ext_emb, batch_graph.ext_label)
@@ -103,6 +103,8 @@ if __name__ == '__main__':
     parser.add_argument('--num_layers', type=int, default=2)
     parser.add_argument('--lr', type=float, default=0.0001)
     parser.add_argument('--step', type=int, default=500)
+    parser.add_argument('--int_threshold', type=float, default=0.5)
+    parser.add_argument('--ext_threshold', type=float, default=0.5)
     parser.add_argument('--output_file', type=str)
     parser.add_argument('--model', type=str, default='insig')
     parser.add_argument('--ablation', type=str, default='none')
@@ -124,8 +126,8 @@ if __name__ == '__main__':
     elif args.dataset == 'dataset_chembl':
         dataset = Dataset_chembl(root="data/Dataset_chembl", pre_transform=None)
         train_dataset = dataset[:int(len(dataset)*0.8)]
-        val_dataset = dataset[int(len(dataset)*0.8):int(len(dataset)*0.9)]
-        test_dataset = dataset[int(len(dataset)*0.9):]
+        test_dataset = dataset[int(len(dataset)*0.8):int(len(dataset)*0.9)]
+        val_dataset = dataset[int(len(dataset)*0.9):]
     elif args.dataset == 'zinc_subset':
         train_dataset = ZINC(root='data/ZINC', subset=True, split='train', pre_transform=None)
         test_dataset = ZINC(root='data/ZINC', subset=True, split='test', pre_transform=None)
@@ -134,14 +136,19 @@ if __name__ == '__main__':
         train_dataset = ZINC(root='data/ZINC', subset=False, split='train', pre_transform=None)
         test_dataset = ZINC(root='data/ZINC', subset=False, split='test', pre_transform=None)
         val_dataset = ZINC(root='data/ZINC', subset=False, split='val', pre_transform=None)  
+    elif args.dataset =='qm7b':
+        dataset = QM7b(root='/hdfs1/Data/Shubhajit/Sub-Structure-GNN/data/QM7b', pre_transform=None)
+        train_dataset = dataset[:int(len(dataset)*0.8)]
+        val_dataset = dataset[int(len(dataset)*0.8):int(len(dataset)*0.9)]
+        test_dataset = dataset[int(len(dataset)*0.9):]
 
     collater_fn = collater(args.task)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size,
-                              shuffle=True, drop_last=True, collate_fn=collater_fn)
+                              shuffle=True, drop_last=True, collate_fn=collater_fn, pin_memory=True)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size,
-                            shuffle=False, drop_last=True, collate_fn=collater_fn)
+                            shuffle=False, drop_last=True, collate_fn=collater_fn, pin_memory=True)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
-                             shuffle=False, drop_last=True, collate_fn=collater_fn)
+                             shuffle=False, drop_last=True, collate_fn=collater_fn, pin_memory=True)
 
     Int_GNN = localGNN(args.num_layers, args.hidden_dim).to(device)
     if args.model == 'insig':
@@ -159,24 +166,35 @@ if __name__ == '__main__':
     best_val_loss = 1000
     best_test_loss = 1000
 
-    labels = torch.tensor([]).to(device)
+    train_labels = torch.tensor([]).to(device)
+    test_labels = torch.tensor([]).to(device)
+    val_labels = torch.tensor([]).to(device)
     for batch in tqdm(train_loader):
         for graph in batch[0]:
-            labels = torch.cat(
-            (labels, graph.ext_label.to(device)), 0)
+            #print(graph.ext_label.shape, graph.ext_label)
+            train_labels = torch.cat(
+            (train_labels, graph.ext_label.to(device).reshape(1)), 0)
     for batch in tqdm(val_loader):
         for graph in batch[0]:
-            labels = torch.cat(
-            (labels, graph.ext_label.to(device)), 0)
+            val_labels = torch.cat(
+            (val_labels, graph.ext_label.to(device).reshape(1)), 0)
     for batch in tqdm(test_loader):
         for graph in batch[0]:
-            labels = torch.cat(
-            (labels, graph.ext_label.to(device)), 0)
-    variance = torch.std(labels)**2
-    if  variance == 0:
-        variance = torch.tensor(1)
+            test_labels = torch.cat(
+            (test_labels, graph.ext_label.to(device).reshape(1)), 0)
+    train_variance = torch.std(train_labels)**2
+    val_variance = torch.std(val_labels)**2
+    test_variance = torch.std(test_labels)**2
+    if  train_variance == 0:
+        train_variance = torch.tensor(1)
+    if  val_variance == 0:
+        val_variance = torch.tensor(1)
+    if  test_variance == 0:
+        test_variance = torch.tensor(1)
 
-    print("Variance: ", variance.item())
+    print("Train Variance: ", train_variance.item())
+    print("Val Variance: ", val_variance.item())
+    print("Test Variance: ", test_variance.item())
     print("Number of parameters in Int_GNN: ", count_parameters(Int_GNN))
     print("Number of parameters in Ext_GNN: ", count_parameters(Ext_GNN))
 
@@ -190,16 +208,16 @@ if __name__ == '__main__':
                            Int_Opt, Ext_Opt, args)
         end_time = time.time()
         train_time.append(end_time-start_time)
-        print('Train loss : {}'.format(train_loss/variance))
+        print('Train loss : {}'.format(train_loss/train_variance))
 
         print('Evaluating...')
         start_time = time.time()
         valid_loss = eval(Int_GNN, Ext_GNN, val_loader, args)
         end_time = time.time()
         eval_time.append((end_time-start_time)/len(val_dataset))
-        print('Valid loss : {}'.format(valid_loss/variance))
+        print('Valid loss : {}'.format(valid_loss/val_variance))
         test_loss = eval(Int_GNN, Ext_GNN, test_loader, args)
-        print('Test loss : {}'.format(test_loss/variance))
+        print('Test loss : {}'.format(test_loss/test_variance))
         if valid_loss <= best_val_loss:
             if valid_loss == best_val_loss:
                 # only save if the test loss is lower
@@ -207,9 +225,9 @@ if __name__ == '__main__':
                     best_val_loss = valid_loss
                     best_test_loss = test_loss
                     print("Best Model!")
-                    print("Best valid loss : {}".format(best_val_loss/variance))
+                    print("Best valid loss : {}".format(best_val_loss/val_variance))
                     print("Best test loss : {}".format(
-                        best_test_loss/variance))
+                        best_test_loss/test_variance))
                     # save the best model
                     torch.save(Int_GNN.state_dict(
                     ), "save/{}/Int_GNN_{}_{}.pt".format(args.output_file, args.task, args.dataset))
@@ -219,19 +237,19 @@ if __name__ == '__main__':
                 best_val_loss = valid_loss
                 best_test_loss = test_loss
                 print("Best Model!")
-                print("Best valid loss : {}".format(best_val_loss/variance))
-                print("Best test loss : {}".format(best_test_loss/variance))
+                print("Best valid loss : {}".format(best_val_loss/val_variance))
+                print("Best test loss : {}".format(best_test_loss/test_variance))
                 # save the best model
                 torch.save(Int_GNN.state_dict(
                 ), "save/{}/Int_GNN_{}_{}.pt".format(args.output_file, args.task, args.dataset))
                 torch.save(Ext_GNN.state_dict(
                 ), "save/{}/Ext_GNN_{}_{}.pt".format(args.output_file, args.task, args.dataset))
-        train_curve.append(train_loss/variance)
-        valid_curve.append(valid_loss/variance)
-        test_curve.append(test_loss/variance)
+        train_curve.append(train_loss/train_variance)
+        valid_curve.append(valid_loss/val_variance)
+        test_curve.append(test_loss/test_variance)
 
-    print("Best valid loss : {}".format(best_val_loss/variance))
-    print("Best test loss : {}".format(best_test_loss/variance))
+    print("Best valid loss : {}".format(best_val_loss/val_variance))
+    print("Best test loss : {}".format(best_test_loss/test_variance))
     print("Average train time per epoch: {}".format(np.mean(train_time)))
     print("Average inference time per sample: {}".format(np.mean(eval_time)))
 
@@ -239,10 +257,10 @@ if __name__ == '__main__':
     if args.ablation == 'num_layers':
         with open(f'save/ablation/{args.task}_num_layers.csv', 'a') as f:
             writer = csv.writer(f)
-            writer.writerow([args.model, args.dataset, args.num_layers, count_parameters(Int_GNN), count_parameters(Ext_GNN), (best_test_loss/variance).item(), (best_val_loss/variance).item()])
+            writer.writerow([args.model, args.dataset, args.num_layers, count_parameters(Int_GNN), count_parameters(Ext_GNN), (best_test_loss/test_variance).item(), (best_val_loss/val_variance).item()])
     elif args.ablation == 'hidden_dim':
         with open(f'save/ablation/{args.task}_hidden_dim.csv', 'a') as f:
             writer = csv.writer(f)
-            writer.writerow([args.model, args.dataset, args.hidden_dim, count_parameters(Int_GNN), count_parameters(Ext_GNN), (best_test_loss/variance).item(), (best_val_loss/variance).item()])
+            writer.writerow([args.model, args.dataset, args.hidden_dim, count_parameters(Int_GNN), count_parameters(Ext_GNN), (best_test_loss/test_variance).item(), (best_val_loss/val_variance).item()])
     
 

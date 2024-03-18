@@ -2,7 +2,7 @@ import torch
 from torch_geometric.utils import k_hop_subgraph
 from torch_geometric.data import Data
 from scipy.special import comb
-from torch_geometric.utils import degree
+from torch_geometric.utils import degree, is_undirected, remove_self_loops, contains_self_loops, to_undirected
 
 
 class collater():
@@ -13,8 +13,11 @@ class collater():
     def create_subgraphs(self, data):
 
         edge_index, num_nodes = data.edge_index, data.num_nodes
-
-        num_edges = 0
+        if is_undirected(edge_index) == False:
+            edge_index = to_undirected(edge_index)
+        if contains_self_loops(edge_index):
+            edge_index = remove_self_loops(edge_index)[0]
+        #num_edges = 0
         subgraphs = {}
         total_edge_index = torch.tensor([], dtype=torch.long)
         l = torch.tensor([], dtype=torch.long)
@@ -38,7 +41,9 @@ class collater():
                 data_ = Data(edge_index=edge_index_, z=z_)
                 l = torch.cat(
                     (l, torch.tensor([edge_index_.shape[1]//2])), dim=0)
-                num_edges += edge_index_.shape[1]
+                k = torch.cat(
+                    (k, torch.tensor([edge_index_.shape[1]//2])), dim=0)
+                #num_edges += edge_index_.shape[1]
 
             elif self.task == "3star":
                 nodes_, edge_index_, edge_mask_, z_ = k_hop_subgraph(
@@ -144,7 +149,8 @@ class collater():
         if self.task == "triangle":
             new_data = Data(edge_index=total_edge_index.T)
             #new_data.ext_label_dataset = data.triangle
-            new_data.ext_label = torch.tensor([num_edges//6])
+            #new_data.ext_label = torch.tensor([num_edges//6])
+            new_data.ext_label = torch.sum(k)//3
         elif self.task == "3star":
             new_data = Data(edge_index=data.edge_index)
             #new_data.ext_label_dataset = data.star
@@ -192,8 +198,13 @@ class frag_collater_K4():
             node_name = torch.unique(edge_index[0])
         else:
             return {}, torch.tensor([0])
-        num_edges = 0
+        if is_undirected(edge_index) == False:
+            edge_index = to_undirected(edge_index)
+        if contains_self_loops(edge_index):
+            edge_index = remove_self_loops(edge_index)[0]
+        #num_edges = 0
         subgraphs = {}
+        k = torch.tensor([], dtype=torch.long)
         for ind in node_name:
             nodes_, edge_index_, edge_mask_, z_ = k_hop_subgraph(
                 ind.item(), 1, edge_index, False, num_nodes)
@@ -208,15 +219,21 @@ class frag_collater_K4():
             if len(edge_index_.shape) == 1:
                 edge_index_ = edge_index_.reshape(2, edge_index_.shape[0])
             data_ = Data(edge_index=edge_index_, z=z_)
-            num_edges += edge_index_.shape[1]
+            k = torch.cat(
+                    (k, torch.tensor([edge_index_.shape[1]//2])), dim=0)
+            #num_edges += edge_index_.shape[1]
             subgraphs[ind.item()] = data_
-        return subgraphs, torch.tensor([num_edges//6])
+        return subgraphs, torch.sum(k)//3
 
     def create_subgraphs(self, data):
 
         edge_index, num_nodes = data.edge_index, data.num_nodes
         subsubgraphs = {}
-        num_edges = 0
+        if is_undirected(edge_index) == False:
+            edge_index = to_undirected(edge_index)
+        if contains_self_loops(edge_index):
+            edge_index = remove_self_loops(edge_index)[0]
+        #num_edges = 0
         subgraphs = {}
         total_edge_index = torch.tensor([], dtype=torch.long)
         l = torch.tensor([], dtype=torch.long)
@@ -236,7 +253,8 @@ class frag_collater_K4():
             s.append(s1)
             subsubgraphs[ind] = s
             subgraphs[ind] = data_1
-            l = torch.cat((l, l1), dim=0)
+            #print(l1)
+            l = torch.cat((l, l1.reshape(1)), dim=0)
 
         total_edge_index = torch.unique(total_edge_index, dim=0)
 
@@ -273,6 +291,10 @@ class frag_collater_C4():
             node_name = torch.unique(edge_index[0])
         else:
             return {}, torch.tensor([0])
+        if is_undirected(edge_index) == False:
+            edge_index = to_undirected(edge_index)
+        if contains_self_loops(edge_index):
+            edge_index = remove_self_loops(edge_index)[0]
         subgraphs = {}
         k = torch.tensor([], dtype=torch.long)
         for ind in node_name:
@@ -301,6 +323,10 @@ class frag_collater_C4():
 
         edge_index, num_nodes = data.edge_index, data.num_nodes
         subsubgraphs = {}
+        if is_undirected(edge_index) == False:
+            edge_index = to_undirected(edge_index)
+        if contains_self_loops(edge_index):
+            edge_index = remove_self_loops(edge_index)[0]
         num_edges = 0
         subgraphs = {}
         total_edge_index = torch.tensor([], dtype=torch.long)
@@ -364,6 +390,10 @@ class frag_collater_tailed_triangle():
     def create_subsubgraphs(self, data, root):
         edge_index, num_nodes = data.edge_index, data.num_nodes
         subgraphs = {}
+        if is_undirected(edge_index) == False:
+            edge_index = to_undirected(edge_index)
+        if contains_self_loops(edge_index):
+            edge_index = remove_self_loops(edge_index)[0]
         edge_index_ = edge_index.T
         node_graph_edge = torch.tensor([], dtype=torch.long)
         edge_graph_edge = torch.tensor([], dtype=torch.long)
@@ -392,6 +422,10 @@ class frag_collater_tailed_triangle():
 
         edge_index, num_nodes = data.edge_index, data.num_nodes
         subsubgraphs = {}
+        if is_undirected(edge_index) == False:
+            edge_index = to_undirected(edge_index)
+        if contains_self_loops(edge_index):
+            edge_index = remove_self_loops(edge_index)[0]
         num_edges = 0
         subgraphs = {}
         total_edge_index = torch.tensor([], dtype=torch.long)

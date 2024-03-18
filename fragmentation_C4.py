@@ -4,6 +4,7 @@ from model import *
 from helper import *
 from dataset_creation import *
 from torch.utils.data import DataLoader
+from torch_geometric.datasets import ZINC, QM7b
 import os
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -117,6 +118,24 @@ def main(args):
         train_dataset = dataset[:int(len(dataset)*0.8)]
         val_dataset = dataset[int(len(dataset)*0.8):int(len(dataset)*0.9)]
         test_dataset = dataset[int(len(dataset)*0.9):]
+    elif args.dataset == 'dataset_chembl':
+        dataset = Dataset_chembl(root="data/Dataset_chembl", pre_transform=None)
+        train_dataset = dataset[:int(len(dataset)*0.8)]
+        val_dataset = dataset[int(len(dataset)*0.8):int(len(dataset)*0.9)]
+        test_dataset = dataset[int(len(dataset)*0.9):]
+    elif args.dataset == 'zinc_subset':
+        train_dataset = ZINC(root='data/ZINC', subset=True, split='train', pre_transform=None)
+        test_dataset = ZINC(root='data/ZINC', subset=True, split='test', pre_transform=None)
+        val_dataset = ZINC(root='data/ZINC', subset=True, split='val', pre_transform=None)  
+    elif args.dataset == 'zinc_full':
+        train_dataset = ZINC(root='data/ZINC', subset=False, split='train', pre_transform=None)
+        test_dataset = ZINC(root='data/ZINC', subset=False, split='test', pre_transform=None)
+        val_dataset = ZINC(root='data/ZINC', subset=False, split='val', pre_transform=None)  
+    elif args.dataset =='qm7b':
+        dataset = QM7b(root='/hdfs1/Data/Shubhajit/Sub-Structure-GNN/data/QM7b', pre_transform=None)
+        train_dataset = dataset[:int(len(dataset)*0.8)]
+        val_dataset = dataset[int(len(dataset)*0.8):int(len(dataset)*0.9)]
+        test_dataset = dataset[int(len(dataset)*0.9):]
 
     collater_fn = frag_collater_C4()
     train_loader = DataLoader(
@@ -137,19 +156,35 @@ def main(args):
     pred_opt = torch.optim.Adam(predict_model.parameters(), lr=args.lr)
     loss_fn1 = torch.nn.L1Loss(reduction='mean')
 
-    labels = torch.tensor([]).to(device)
+    train_labels = torch.tensor([]).to(device)
+    test_labels = torch.tensor([]).to(device)
+    val_labels = torch.tensor([]).to(device)
     for batch in tqdm(train_loader):
-        labels = torch.cat(
-            (labels, torch.sum(batch[2]).reshape(1).to(device)), 0)
+        for graph in batch[0]:
+            #print(graph.ext_label.shape, graph.ext_label)
+            train_labels = torch.cat(
+            (train_labels, graph.ext_label.to(device).reshape(1)), 0)
     for batch in tqdm(val_loader):
-        labels = torch.cat(
-            (labels, torch.sum(batch[2]).reshape(1).to(device)), 0)
+        for graph in batch[0]:
+            val_labels = torch.cat(
+            (val_labels, graph.ext_label.to(device).reshape(1)), 0)
     for batch in tqdm(test_loader):
-        labels = torch.cat(
-            (labels, torch.sum(batch[2]).reshape(1).to(device)), 0)
-    variance = torch.std(labels)**2
+        for graph in batch[0]:
+            test_labels = torch.cat(
+            (test_labels, graph.ext_label.to(device).reshape(1)), 0)
+    train_variance = torch.std(train_labels)**2
+    val_variance = torch.std(val_labels)**2
+    test_variance = torch.std(test_labels)**2
+    if  train_variance == 0:
+        train_variance = torch.tensor(1)
+    if  val_variance == 0:
+        val_variance = torch.tensor(1)
+    if  test_variance == 0:
+        test_variance = torch.tensor(1)
 
-    print("Variance: ", variance.item())
+    print("Train Variance: ", train_variance.item())
+    print("Val Variance: ", val_variance.item())
+    print("Test Variance: ", test_variance.item())
     print("Number of parameters in predictor: ",
           count_parameters(predict_model))
 
@@ -163,24 +198,24 @@ def main(args):
         print('Training...')
         train_loss = train(args, int_2star, ext_2star,
                            predict_model, train_loader, pred_opt, loss_fn1)
-        print('Train loss : {}'.format(train_loss/variance))
+        print('Train loss : {}'.format(train_loss/train_variance))
 
         print('Evaluating...')
         valid_loss = eval(args, int_2star, ext_2star,
                           predict_model, val_loader, loss_fn1)
-        print('Valid loss : {}'.format(valid_loss/variance))
+        print('Valid loss : {}'.format(valid_loss/val_variance))
         test_loss = eval(args, int_2star, ext_2star,
                          predict_model, test_loader, loss_fn1)
-        print('Test loss : {}'.format(test_loss/variance))
+        print('Test loss : {}'.format(test_loss/test_variance))
         if valid_loss <= best_val_loss:
             if valid_loss == best_val_loss:
                 if test_loss < best_test_loss:
                     best_val_loss = valid_loss
                     best_test_loss = test_loss
                     print("Best Model!")
-                    print("Best valid loss : {}".format(best_val_loss/variance))
+                    print("Best valid loss : {}".format(best_val_loss/val_variance))
                     print("Best test loss : {}".format(
-                        best_test_loss/variance))
+                        best_test_loss/test_variance))
                     # save the best model
                     torch.save(predict_model.state_dict(
                     ), "save/{}/predict_model_{}.pt".format(args.output_file, args.dataset))
@@ -188,17 +223,17 @@ def main(args):
                 best_val_loss = valid_loss
                 best_test_loss = test_loss
                 print("Best Model!")
-                print("Best valid loss : {}".format(best_val_loss/variance))
-                print("Best test loss : {}".format(best_test_loss/variance))
+                print("Best valid loss : {}".format(best_val_loss/val_variance))
+                print("Best test loss : {}".format(best_test_loss/test_variance))
                 # save the best model
                 torch.save(predict_model.state_dict(
                 ), "save/{}/predict_model_{}.pt".format(args.output_file, args.dataset))
-        train_curve.append(train_loss/variance)
-        valid_curve.append(valid_loss/variance)
-        test_curve.append(test_loss/variance)
+        train_curve.append(train_loss/train_variance)
+        valid_curve.append(valid_loss/val_variance)
+        test_curve.append(test_loss/test_variance)
 
-    print("Best valid loss : {}".format(best_val_loss/variance))
-    print("Best test loss : {}".format(best_test_loss/variance))
+    print("Best valid loss : {}".format(best_val_loss/val_variance))
+    print("Best test loss : {}".format(best_test_loss/test_variance))
 
 
 if __name__ == "__main__":
