@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 import os
 import time
 import numpy as np
-from torch_geometric.datasets import ZINC, QM7b
+from torch_geometric.datasets import ZINC
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -126,8 +126,8 @@ if __name__ == '__main__':
     elif args.dataset == 'dataset_chembl':
         dataset = Dataset_chembl(root="data/Dataset_chembl", pre_transform=None)
         train_dataset = dataset[:int(len(dataset)*0.8)]
-        test_dataset = dataset[int(len(dataset)*0.8):int(len(dataset)*0.9)]
-        val_dataset = dataset[int(len(dataset)*0.9):]
+        val_dataset = dataset[int(len(dataset)*0.8):int(len(dataset)*0.9)]
+        test_dataset = dataset[int(len(dataset)*0.9):]
     elif args.dataset == 'zinc_subset':
         train_dataset = ZINC(root='data/ZINC', subset=True, split='train', pre_transform=None)
         test_dataset = ZINC(root='data/ZINC', subset=True, split='test', pre_transform=None)
@@ -136,11 +136,6 @@ if __name__ == '__main__':
         train_dataset = ZINC(root='data/ZINC', subset=False, split='train', pre_transform=None)
         test_dataset = ZINC(root='data/ZINC', subset=False, split='test', pre_transform=None)
         val_dataset = ZINC(root='data/ZINC', subset=False, split='val', pre_transform=None)  
-    elif args.dataset =='qm7b':
-        dataset = QM7b(root='/hdfs1/Data/Shubhajit/Sub-Structure-GNN/data/QM7b', pre_transform=None)
-        train_dataset = dataset[:int(len(dataset)*0.8)]
-        val_dataset = dataset[int(len(dataset)*0.8):int(len(dataset)*0.9)]
-        test_dataset = dataset[int(len(dataset)*0.9):]
 
     collater_fn = collater(args.task)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size,

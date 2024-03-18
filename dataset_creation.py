@@ -36,15 +36,13 @@ class Dataset_1_orig(InMemoryDataset):
 
         if not isinstance(g, dgl.DGLGraph):
             raise ValueError(f"Invalid data type (got '{type(g)}')")
-
-        data = Data()
-        data.edge_index = torch.stack(g.edges(), dim=0)
+        
+        data = Data(edge_index=torch.stack(g.edges(), dim=0))
 
         for attr, value in g.ndata.items():
             data[attr] = value
         for attr, value in g.edata.items():
             data[attr] = value
-
         data = count_labels(data)
         return data
 

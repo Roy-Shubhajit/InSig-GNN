@@ -178,7 +178,7 @@ def count_2stars_C4(data, node_dict):
     if num_nodes > 0:
         node_name = torch.unique(edge_index[0])
     else:
-        return {}, torch.tensor([0])
+        return torch.tensor(0)
     if is_undirected(edge_index) == False:
         edge_index = to_undirected(edge_index)
     if contains_self_loops(edge_index):
@@ -233,7 +233,8 @@ def count_C4(data):
             edge_index_ = edge_index_.reshape(2, edge_index_.shape[0])
         s = []
         data_1 = Data(edge_index=edge_index_, z=z_)
-        l = torch.cat((l, count_2stars_C4(data_1, node_dict).reshape(1)), dim=0)
+        c = count_2stars_C4(data_1, node_dict)
+        l = torch.cat((l, c.reshape(1)), dim=0)
 
     return torch.sum(l)//4
 
@@ -285,13 +286,23 @@ def count_tailed_triangle(data):
     return torch.sum(l)
 
 def count_labels(data):
-    data.triangle = count_triangle(data)
-    data.star = count_3star(data)
-    data.chordal_cycle = count_chordal(data)
-    data.star_2 = count_2star(data)
-    data.local_nodes = count_local_nodes(data)
-    data.local_edges = count_local_edges(data)
-    data.K4 = count_K4(data)
-    data.tailed_triangle = count_tailed_triangle(data)
-    data.C4 = count_C4(data)
+
+    triangle = count_triangle(data)
+    star = count_3star(data)
+    chordal_cycle = count_chordal(data)
+    star_2 = count_2star(data)
+    local_nodes = count_local_nodes(data)
+    local_edges = count_local_edges(data)
+    k4 = count_K4(data)
+    tailed_triangle = count_tailed_triangle(data)
+    c4 = count_C4(data)
+    data.triangle = triangle
+    data.star = star
+    data.chordal_cycle = chordal_cycle
+    data.star_2 = star_2
+    data.local_nodes = local_nodes
+    data.local_edges = local_edges
+    data.K4 = k4
+    data.tailed_triangle = tailed_triangle
+    data.C4 = c4
     return data
