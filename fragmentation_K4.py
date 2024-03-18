@@ -5,6 +5,7 @@ from helper import *
 from dataset_creation import *
 from torch.utils.data import DataLoader
 import os
+import json
 from torch_geometric.datasets import ZINC, QM7b
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -155,35 +156,24 @@ def main(args):
     pred_opt = torch.optim.Adam(predict_model.parameters(), lr=args.lr)
     loss_fn1 = torch.nn.L1Loss(reduction='mean')
 
-    train_labels = torch.tensor([]).to(device)
-    test_labels = torch.tensor([]).to(device)
-    val_labels = torch.tensor([]).to(device)
-    for batch in tqdm(train_loader):
-        for graph in batch[0]:
-            #print(graph.ext_label.shape, graph.ext_label)
-            train_labels = torch.cat(
-            (train_labels, graph.ext_label.to(device).reshape(1)), 0)
-    for batch in tqdm(val_loader):
-        for graph in batch[0]:
-            val_labels = torch.cat(
-            (val_labels, graph.ext_label.to(device).reshape(1)), 0)
-    for batch in tqdm(test_loader):
-        for graph in batch[0]:
-            test_labels = torch.cat(
-            (test_labels, graph.ext_label.to(device).reshape(1)), 0)
-    train_variance = torch.std(train_labels)**2
-    val_variance = torch.std(val_labels)**2
-    test_variance = torch.std(test_labels)**2
-    if  train_variance == 0:
-        train_variance = torch.tensor(1)
-    if  val_variance == 0:
-        val_variance = torch.tensor(1)
-    if  test_variance == 0:
-        test_variance = torch.tensor(1)
+    with open(f'data/{args.dataset}_variance.json') as f:
+        variance = json.load(f)
+    train_variance = torch.tensor(variance['Training']['K4'])
+    val_variance = torch.tensor(variance['Validation']['K4'])
+    test_variance = torch.tensor(variance['Test']['K4'])
 
     print("Train Variance: ", train_variance.item())
     print("Val Variance: ", val_variance.item())
     print("Test Variance: ", test_variance.item())
+    if  train_variance == 0:
+        print("Train Variance is 0, setting it to 1")
+        train_variance = torch.tensor(1)
+    if  val_variance == 0:
+        print("Val Variance is 0, setting it to 1")
+        val_variance = torch.tensor(1)
+    if  test_variance == 0:
+        print("Test Variance is 0, setting it to 1")
+        test_variance = torch.tensor(1)
     print("Number of parameters in predictor: ",
           count_parameters(predict_model))
 

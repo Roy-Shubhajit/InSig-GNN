@@ -1,0 +1,39 @@
+{
+    "Training": {
+        "triangle": 0.09596,
+        "3star": 11.919041,
+        "chordal":0.000077,
+        "2star":88.558167,
+        "K4":0.0,
+        "C4":0.056187,
+        "Tailed_Triangle":0.312364
+    },
+    "Validation": {
+        "triangle": 0.006748,
+        "3star": 22.891245,
+        "chordal":0.0,
+        "2star":91.421707,
+        "K4":0.0,
+        "C4":0.005528,
+        "Tailed_Triangle":0.042979
+    },
+    "Test": {
+        "triangle":0.024212,
+        "3star": 14.699235,
+        "chordal":0.0,
+        "2star":75.879616,
+        "K4":0.0,
+        "C4":0.014005,
+        "Tailed_Triangle":0.150979
+    }
+}
+
+
+
+
+
+
+
+
+
+

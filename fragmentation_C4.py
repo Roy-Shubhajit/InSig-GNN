@@ -6,7 +6,7 @@ from dataset_creation import *
 from torch.utils.data import DataLoader
 from torch_geometric.datasets import ZINC, QM7b
 import os
-
+import json
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
@@ -172,19 +172,25 @@ def main(args):
         for graph in batch[0]:
             test_labels = torch.cat(
             (test_labels, graph.ext_label.to(device).reshape(1)), 0)
-    train_variance = torch.std(train_labels)**2
-    val_variance = torch.std(val_labels)**2
-    test_variance = torch.std(test_labels)**2
-    if  train_variance == 0:
-        train_variance = torch.tensor(1)
-    if  val_variance == 0:
-        val_variance = torch.tensor(1)
-    if  test_variance == 0:
-        test_variance = torch.tensor(1)
+    
+    with open(f'data/{args.dataset}_variance.json') as f:
+        variance = json.load(f)
+    train_variance = torch.tensor(variance['Training']['C4'])
+    val_variance = torch.tensor(variance['Validation']['C4'])
+    test_variance = torch.tensor(variance['Test']['C4'])
 
     print("Train Variance: ", train_variance.item())
     print("Val Variance: ", val_variance.item())
     print("Test Variance: ", test_variance.item())
+    if  train_variance == 0:
+        print("Train Variance is 0, setting it to 1")
+        train_variance = torch.tensor(1)
+    if  val_variance == 0:
+        print("Val Variance is 0, setting it to 1")
+        val_variance = torch.tensor(1)
+    if  test_variance == 0:
+        print("Test Variance is 0, setting it to 1")
+        test_variance = torch.tensor(1)
     print("Number of parameters in predictor: ",
           count_parameters(predict_model))
 
