@@ -9,6 +9,7 @@ from torch_geometric.utils import k_hop_subgraph, to_undirected
 from scipy.special import comb
 from rdkit import Chem
 import pickle
+from tqdm import tqdm
 from dataset_labels import *
 warnings.filterwarnings('ignore')
 
@@ -142,19 +143,19 @@ class Dataset_chembl(InMemoryDataset):
 
         data = Data()
         data.edge_index = to_undirected(torch.tensor(edge_list, dtype=torch.long).t().contiguous())
-        data = count_labels(data)
-        return data
+        data1 = count_labels(data)
+        return data1
 
     def process(self):
         with open('/hdfs1/Data/Shubhajit/Sub-Structure-GNN/data/chembl.pkl', 'rb') as f:
             chembl_data = pickle.load(f)
         data_list = []
-        for i in chembl_data:
+        for i in tqdm(chembl_data):
             data = self.from_chembl(i)
             data_list.append(data)
 
         if self.pre_transform is not None:
-            data_list = [self.pre_transform(data) for data in data_list]
+            data_list = [self.pre_transform(data) for data in tqdm(data_list)]
 
         data, slices = self.collate(data_list)
         torch.save((data, slices), self.processed_paths[0])

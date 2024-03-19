@@ -2,6 +2,7 @@ from torch_geometric.data import Data
 from torch_geometric.utils import k_hop_subgraph
 from scipy.special import comb
 import torch
+import random
 from torch_geometric.utils import degree, is_undirected, remove_self_loops, contains_self_loops, to_undirected
 
 
@@ -153,6 +154,35 @@ def count_local_edges(data):
         
     return torch.sum(k)
 
+def count_triangle_K4(data):
+    edge_index, num_nodes = data.edge_index, data.num_nodes
+    if num_nodes > 0:
+        node_name = torch.unique(edge_index[0])
+    else:
+        return torch.tensor(0)
+    if is_undirected(edge_index) == False:
+        edge_index = to_undirected(edge_index)
+    if contains_self_loops(edge_index):
+        edge_index = remove_self_loops(edge_index)[0]
+    k = torch.tensor([], dtype=torch.long)
+    for ind in node_name:
+        nodes_, edge_index_, edge_mask_, z_ = k_hop_subgraph(
+            ind.item(), 1, edge_index, False, num_nodes)
+        edge_attr_ = None
+        edge_index_ = edge_index_.T
+        new_edge_index = torch.tensor([], dtype=torch.long)
+        for edge in edge_index_:
+            if edge[0] != ind and edge[1] != ind:
+                new_edge_index = torch.cat(
+                    (new_edge_index, edge.unsqueeze(0)), dim=0)
+        edge_index_ = new_edge_index.T
+        if len(edge_index_.shape) == 1:
+            edge_index_ = edge_index_.reshape(2, edge_index_.shape[0])
+        data_ = Data(edge_index=edge_index_, z=z_)
+        k = torch.cat(
+                (k, torch.tensor([edge_index_.shape[1]//2])), dim=0)
+    return torch.sum(k)//3
+
 def count_K4(data):
     edge_index, num_nodes = data.edge_index, data.num_nodes
     if is_undirected(edge_index) == False:
@@ -168,12 +198,11 @@ def count_K4(data):
         mask = (edge_index_ != ind).all(dim=1)
         edge_index_ = edge_index_[mask].T
         data_1 = Data(edge_index=edge_index_, z=z_)
-        l = torch.cat((l, count_triangle(data_1).reshape(1)), dim=0)
+        l = torch.cat((l, count_triangle_K4(data_1).reshape(1)), dim=0)
 
     return torch.sum(l)//4
 
 def count_2stars_C4(data, node_dict):
-    edge_index, num_nodes = data.edge_index, data.num_nodes
     edge_index, num_nodes = data.edge_index, data.num_nodes
     if num_nodes > 0:
         node_name = torch.unique(edge_index[0])
@@ -286,7 +315,7 @@ def count_tailed_triangle(data):
     return torch.sum(l)
 
 def count_labels(data):
-
+    num_nodes = data.num_nodes
     triangle = count_triangle(data)
     star = count_3star(data)
     chordal_cycle = count_chordal(data)
@@ -305,4 +334,37 @@ def count_labels(data):
     data.K4 = k4
     data.tailed_triangle = tailed_triangle
     data.C4 = c4
+    data.num_nodes = num_nodes
+    return data
+
+def add_chordal(data):
+    k1 = max(data.edge_index[0])
+    k2 = max(data.edge_index[1])
+    k = max(k1, k2)
+    num = random.randint(1, 10)
+    L = set()
+    while len(L) < num:
+        l = set()
+        while len(l) < 4:
+            l.add(random.randint(0, k-1))
+        l = frozenset(l)
+        L.add(l)
+    edges = torch.tensor([], dtype=torch.long)
+    edges = edges.reshape(0, 2)
+    for i in L:
+        i = list(i)
+        edges = torch.cat((edges, torch.tensor([[i[0], i[1]]], dtype=torch.long)), dim=0)
+        edges = torch.cat((edges, torch.tensor([[i[1], i[2]]], dtype=torch.long)), dim=0)
+        edges = torch.cat((edges, torch.tensor([[i[2], i[3]]], dtype=torch.long)), dim=0)
+        edges = torch.cat((edges, torch.tensor([[i[3], i[0]]], dtype=torch.long)), dim=0)
+        edges = torch.cat((edges, torch.tensor([[i[0], i[2]]], dtype=torch.long)), dim=0)
+
+    new_edge_index = data.edge_index.T
+    for edge in edges:
+        if torch.all(torch.eq(edge, data.edge_index.T)):
+            continue
+        else:
+            new_edge_index = torch.cat((new_edge_index, edge.unsqueeze(0)), dim=0)
+    data.edge_index = new_edge_index.T
+    data = count_labels(data)
     return data
