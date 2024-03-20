@@ -7,7 +7,6 @@ from dataset_labels import *
 from torch.utils.data import DataLoader
 import os
 import json
-from variance import calculate_dataset_variance
 from torch_geometric.datasets import ZINC, QM7b
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 

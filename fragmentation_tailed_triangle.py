@@ -5,7 +5,6 @@ from helper import *
 from dataset_creation import *
 from torch.utils.data import TensorDataset, DataLoader
 from torch_geometric.datasets import ZINC, QM7b
-from variance import calculate_dataset_variance
 from dataset_labels import *
 import os
 import json

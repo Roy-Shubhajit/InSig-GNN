@@ -10,7 +10,6 @@ import os
 import time
 import numpy as np
 from torch_geometric.datasets import ZINC
-from variance import calculate_dataset_variance
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
