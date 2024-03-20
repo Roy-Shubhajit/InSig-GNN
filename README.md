@@ -12,11 +12,11 @@ The model can be trained using the following command:
 ```shell
 python main.py \
 --task triangle/3star/2star/chordal \
---dataset dataset_1/dataset_2/dataset_chembl/zinc_subset/zinc_full \
+--dataset dataset_1/dataset_2/dataset_chembl/dataset_chembl_chrodals/zinc_subset/zinc_subset_chordals/zinc_full \
 --batch_size 1 \
 --lr 0.0001 \
 --hidden_dim 64 \
---num_layers 2
+--num_layers 2 \
 --epochs 5 \
 --step 500 \
 --model insig/insideout \
@@ -27,7 +27,7 @@ To run fragmentation using the previous model:
 
 ```shell
 python fragmentation_{K4/C4/tailed_triangle}.py \
---dataset dataset_1/dataset_2/dataset_chembl/zinc_subset/zinc_full \
+--dataset dataset_1/dataset_2/dataset_chembl/dataset_chembl_chrodals/zinc_subset/zinc_subset_chordals/zinc_full \
 --num_layers 2 \
 --batch_size 1 \
 --lr 0.0001 \
@@ -45,6 +45,13 @@ To run ablation study on hidden dimension or number of layers:
 chmod +x ablation_{hidden_dim/num_layers}.sh
 ./ablation_{hidden_dim/num_layers}.sh
 ```
+
+To get the variance of different pattern counts in a dataset, run the following command:
+
+```shell
+python variance.py --dataset dataset_1/dataset_2/dataset_chembl/dataset_chembl_chrodals/zinc_subset/zinc_subset_chordals/zinc_full
+```
+This command will store a json file corresponding to the dataset if it doesn't exit.
 
 Please Note, for predicting K4, the internal and external models are of triangle. The set of arguments should be given corresponding to the argument given for learning traingle model. 
 

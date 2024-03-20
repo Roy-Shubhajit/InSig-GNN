@@ -3,7 +3,9 @@ import argparse
 from model import *
 from helper import *
 from dataset_creation import *
+from dataset_labels import *
 from torch.utils.data import DataLoader
+from variance import calculate_dataset_variance
 from torch_geometric.datasets import ZINC, QM7b
 import os
 import json
@@ -107,7 +109,7 @@ def main(args):
 
     if 'save/'+args.output_file not in os.listdir():
         os.mkdir('save/'+args.output_file)
-
+    variance_flag = True
     if args.dataset == 'dataset_1':
         dataset = Dataset_1_orig(root="data/Dataset1", pre_transform=None)
         train_dataset = dataset[:int(len(dataset)*0.8)]
@@ -121,21 +123,29 @@ def main(args):
     elif args.dataset == 'dataset_chembl':
         dataset = Dataset_chembl(root="data/Dataset_chembl", pre_transform=None)
         train_dataset = dataset[:int(len(dataset)*0.8)]
-        val_dataset = dataset[int(len(dataset)*0.8):int(len(dataset)*0.9)]
-        test_dataset = dataset[int(len(dataset)*0.9):]
+        test_dataset = dataset[int(len(dataset)*0.8):int(len(dataset)*0.9)]
+        val_dataset = dataset[int(len(dataset)*0.9):]
+    elif args.dataset == 'dataset_chembl_chordals':
+        dataset = Dataset_chembl(root="data/Dataset_chembl_chordals", pre_transform=add_chordal)
+        train_dataset = dataset[:int(len(dataset)*0.8)]
+        test_dataset = dataset[int(len(dataset)*0.8):int(len(dataset)*0.9)]
+        val_dataset = dataset[int(len(dataset)*0.9):]
     elif args.dataset == 'zinc_subset':
         train_dataset = ZINC(root='data/ZINC', subset=True, split='train', pre_transform=None)
         test_dataset = ZINC(root='data/ZINC', subset=True, split='test', pre_transform=None)
         val_dataset = ZINC(root='data/ZINC', subset=True, split='val', pre_transform=None)  
+    elif args.dataset == 'zinc_subset_chordals':
+        train_dataset = ZINC(root='data/ZINC_chordals', subset=True, split='train', pre_transform=add_chordal)
+        test_dataset = ZINC(root='data/ZINC_chordals', subset=True, split='test', pre_transform=add_chordal)
+        val_dataset = ZINC(root='data/ZINC_chordals', subset=True, split='val', pre_transform=add_chordal)
     elif args.dataset == 'zinc_full':
         train_dataset = ZINC(root='data/ZINC', subset=False, split='train', pre_transform=None)
         test_dataset = ZINC(root='data/ZINC', subset=False, split='test', pre_transform=None)
         val_dataset = ZINC(root='data/ZINC', subset=False, split='val', pre_transform=None)  
-    elif args.dataset =='qm7b':
-        dataset = QM7b(root='/hdfs1/Data/Shubhajit/Sub-Structure-GNN/data/QM7b', pre_transform=None)
-        train_dataset = dataset[:int(len(dataset)*0.8)]
-        val_dataset = dataset[int(len(dataset)*0.8):int(len(dataset)*0.9)]
-        test_dataset = dataset[int(len(dataset)*0.9):]
+    elif args.dataset == 'zinc_full_chordals':
+        train_dataset = ZINC(root='data/ZINC_chordals', subset=False, split='train', pre_transform=add_chordal)
+        test_dataset = ZINC(root='data/ZINC_chordals', subset=False, split='test', pre_transform=add_chordal)
+        val_dataset = ZINC(root='data/ZINC_chordals', subset=False, split='val', pre_transform=add_chordal)
 
     collater_fn = frag_collater_C4()
     train_loader = DataLoader(
@@ -173,11 +183,22 @@ def main(args):
             test_labels = torch.cat(
             (test_labels, graph.ext_label.to(device).reshape(1)), 0)
     
-    with open(f'data/{args.dataset}_variance.json') as f:
-        variance = json.load(f)
-    train_variance = torch.tensor(variance['Training']['C4'])
-    val_variance = torch.tensor(variance['Validation']['C4'])
-    test_variance = torch.tensor(variance['Test']['C4'])
+    if f'{args.dataset}_variance.json' not in os.listdir('data'):
+        variance_flag = False
+
+    if variance_flag:
+        with open(f'data/{args.dataset}_variance.json') as f:
+            variance = json.load(f)
+        train_variance = torch.tensor(variance['Training']['C4'])
+        val_variance = torch.tensor(variance['Validation']['C4'])
+        test_variance = torch.tensor(variance['Test']['C4'])
+    else:
+        calculate_dataset_variance(args.dataset, train_dataset, val_dataset, test_dataset)
+        with open(f'data/{args.dataset}_variance.json') as f:
+            variance = json.load(f)
+        train_variance = torch.tensor(variance['Training']['C4'])
+        val_variance = torch.tensor(variance['Validation']['C4'])
+        test_variance = torch.tensor(variance['Test']['C4'])
 
     print("Train Variance: ", train_variance.item())
     print("Val Variance: ", val_variance.item())
