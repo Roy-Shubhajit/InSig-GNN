@@ -129,8 +129,7 @@ class collater():
         pass
 
     def create_subgraphs(self, data):
-
-        edge_index, num_nodes = data.edge_index, data.num_nodes
+        edge_index, num_nodes = data.edge_index, torch.max(data.edge_index).item()+1
         if is_undirected(edge_index) == False:
             edge_index = to_undirected(edge_index)
         if contains_self_loops(edge_index):
@@ -142,8 +141,7 @@ class collater():
         k = torch.tensor([], dtype=torch.long)
         for ind in range(num_nodes):
             if self.task == "triangle":
-                nodes_, edge_index_, edge_mask_, z_ = k_hop_subgraph(
-                    ind, 1, edge_index, False, num_nodes)
+                nodes_, edge_index_, edge_mask_, z_ = k_hop_subgraph(node_idx=ind, num_hops=1, edge_index=edge_index, relabel_nodes=False, num_nodes=num_nodes)
                 edge_attr_ = None
                 edge_index_ = edge_index_.T
                 new_edge_index = torch.tensor([], dtype=torch.long)
@@ -292,17 +290,20 @@ class collater():
         return new_data, subgraphs, l
 
     def __call__(self, data):
+        orig_graph = []
         graphs = []
         subgraphs = []
-        max_nodes = max([d.num_nodes for d in data])
+        max_nodes = max([torch.max(d.edge_index).item() + 1 for d in data])
         labels = torch.zeros((len(data), max_nodes), dtype=torch.long)
         for g in data:
+            orig_graph.append(g)
+            num_nodes = torch.max(g.edge_index).item() + 1
             G_, sub_G, internal_labels = self.create_subgraphs(g)
             graphs.append(G_)
             subgraphs.append(sub_G)
-            labels[len(graphs)-1, :g.num_nodes] = internal_labels
+            labels[len(graphs)-1, :num_nodes] = internal_labels
 
-        return [graphs, subgraphs, labels, max_nodes]
+        return [graphs, subgraphs, labels, max_nodes, orig_graph]
 
 
 class frag_collater_K4():
@@ -345,7 +346,7 @@ class frag_collater_K4():
 
     def create_subgraphs(self, data):
 
-        edge_index, num_nodes = data.edge_index, data.num_nodes
+        edge_index, num_nodes = data.edge_index, torch.max(data.edge_index).item() + 1
         subsubgraphs = {}
         if is_undirected(edge_index) == False:
             edge_index = to_undirected(edge_index)
@@ -381,22 +382,24 @@ class frag_collater_K4():
         return new_data, subgraphs, l, subsubgraphs, max([d.num_nodes for d in subgraphs.values()])
 
     def __call__(self, data):
+        orig_graph = []
         graphs = []
         subgraphs = []
         subsubgraphs = []
-        max_nodes = max([d.num_nodes for d in data])
+        max_nodes = max([torch.max(d.edge_index).item() + 1 for d in data])
         subgraph_max_nodes = []
         labels = torch.zeros((len(data), max_nodes), dtype=torch.long)
         for g in data:
+            orig_graph.append(g)
             G_, sub_G, internal_labels, sub_sub_G, max_nodes_subgraph = self.create_subgraphs(
                 g)
             graphs.append(G_)
             subgraphs.append(sub_G)
             subsubgraphs.append(sub_sub_G)
-            labels[len(graphs)-1, :g.num_nodes] = internal_labels
+            labels[len(graphs)-1, :torch.max(g.edge_index).item() + 1] = internal_labels
             subgraph_max_nodes.append(max_nodes_subgraph)
 
-        return [graphs, subgraphs, labels, max_nodes, subsubgraphs, subgraph_max_nodes]
+        return [graphs, subgraphs, labels, max_nodes, subsubgraphs, subgraph_max_nodes, orig_graph]
 
 
 class frag_collater_C4():
@@ -439,7 +442,7 @@ class frag_collater_C4():
 
     def create_subgraphs(self, data):
 
-        edge_index, num_nodes = data.edge_index, data.num_nodes
+        edge_index, num_nodes = data.edge_index, torch.max(data.edge_index).item() + 1
         subsubgraphs = {}
         if is_undirected(edge_index) == False:
             edge_index = to_undirected(edge_index)
@@ -484,21 +487,23 @@ class frag_collater_C4():
         return new_data, subgraphs, l, subsubgraphs, max([d.num_nodes for d in subgraphs.values()])
 
     def __call__(self, data):
+        orig_graph = []
         graphs = []
         subgraphs = []
         subsubgraphs = []
-        max_nodes = max([d.num_nodes for d in data])
+        max_nodes = max([torch.max(d.edge_index).item() + 1 for d in data])
         subgraph_max_nodes = []
         labels = torch.zeros((len(data), max_nodes), dtype=torch.long)
         for g in data:
+            orig_graph.append(g)
             G_, sub_G, internal_labels, sub_sub_G, max_nodes_subgraph = self.create_subgraphs(
                 g)
             graphs.append(G_)
             subgraphs.append(sub_G)
             subsubgraphs.append(sub_sub_G)
-            labels[len(graphs)-1, :g.num_nodes] = internal_labels
+            labels[len(graphs)-1, :torch.max(g.edge_index).item() + 1] = internal_labels
             subgraph_max_nodes.append(max_nodes_subgraph)
-        return [graphs, subgraphs, labels, max_nodes, subsubgraphs, subgraph_max_nodes]
+        return [graphs, subgraphs, labels, max_nodes, subsubgraphs, subgraph_max_nodes, orig_graph]
 
 
 class frag_collater_tailed_triangle():
@@ -538,7 +543,7 @@ class frag_collater_tailed_triangle():
 
     def create_subgraphs(self, data):
 
-        edge_index, num_nodes = data.edge_index, data.num_nodes
+        edge_index, num_nodes = data.edge_index, torch.max(data.edge_index).item() + 1
         subsubgraphs = {}
         if is_undirected(edge_index) == False:
             edge_index = to_undirected(edge_index)
@@ -571,22 +576,24 @@ class frag_collater_tailed_triangle():
         return new_data, subgraphs, l, subsubgraphs, max([d.num_nodes for d in subgraphs.values()])
 
     def __call__(self, data):
+        orig_graph = []
         graphs = []
         subgraphs = []
         subsubgraphs = []
-        max_nodes = max([d.num_nodes for d in data])
+        max_nodes = max([torch.max(d.edge_index).item() + 1 for d in data])
         subgraph_max_nodes = []
         labels = torch.zeros((len(data), max_nodes), dtype=torch.long)
         for g in data:
+            orig_graph.append(g)
             G_, sub_G, internal_labels, sub_sub_G, max_nodes_subgraph = self.create_subgraphs(
                 g)
             graphs.append(G_)
             subgraphs.append(sub_G)
             subsubgraphs.append(sub_sub_G)
-            labels[len(graphs)-1, :g.num_nodes] = internal_labels
+            labels[len(graphs)-1, :torch.max(g.edge_index).item() + 1] = internal_labels
             subgraph_max_nodes.append(max_nodes_subgraph)
 
-        return [graphs, subgraphs, labels, max_nodes, subsubgraphs, subgraph_max_nodes]
+        return [graphs, subgraphs, labels, max_nodes, subsubgraphs, subgraph_max_nodes, orig_graph]
 
 
 def new_round(x, th):

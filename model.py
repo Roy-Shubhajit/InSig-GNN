@@ -2,7 +2,6 @@
 import torch.utils.data
 import warnings
 from torch_geometric.data import Data, InMemoryDataset, download_url, Batch
-from dgl.data.utils import Subset, load_graphs
 from torch_geometric.utils import k_hop_subgraph
 import torch
 import torch.nn.functional as F

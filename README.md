@@ -51,7 +51,7 @@ To get the variance of different pattern counts in a dataset, run the following 
 ```shell
 python variance.py --dataset dataset_1/dataset_2/dataset_chembl/dataset_chembl_chrodals/zinc_subset/zinc_subset_chordals/zinc_full
 ```
-This command will store a json file corresponding to the dataset if it doesn't exit.
+This command will store a json file corresponding to the dataset if it doesn't exit. For first time use, it is requested to delete the dataset_chembl_chordals, zinc_subset_chordals becuase the variance was calculated based on our random addition of chordals. 
 
 Please Note, for predicting K4, the internal and external models are of triangle. The set of arguments should be given corresponding to the argument given for learning traingle model. 
 
