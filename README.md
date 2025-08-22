@@ -1,11 +1,7 @@
-## This is the repository for the paper "**Subgraph Counting with Graph Neural Networks via Fragmentation**".
+## This is the repository for the paper "**Local Fragments, Global Gains: Subgraph Counting using Graph Neural Networks**".
 
 # InSig-GNN
-![model_new](Image/model_new.png)
-
-# InsideOut-GNN
-
-![model](Image/model.png)
+![model_new](Image/counting_GNN.drawio.png)
 
 The model can be trained using the following command:
 
